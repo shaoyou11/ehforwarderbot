@@ -1,0 +1,16 @@
+version: "3.3"
+
+services:
+  efb:
+    image: ghcr.io/jiz4oh/efb
+    volumes:
+      - .:/data
+      - "${USERPROFILE}\\My Documents\\WeChat Files\\:/comwechat/Files"
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - EFB_PROFILE=wsl
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
