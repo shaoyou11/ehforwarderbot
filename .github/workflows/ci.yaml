@@ -54,5 +54,5 @@ jobs:
           context: ./
           push: true
           tags: |
-            ghcr.io/jiz4oh/efb:latest
-            ghcr.io/jiz4oh/efb:${{ env.version }}
+            ghcr.io/shaoyou11/efb:latest
+            ghcr.io/shaoyou11/efb:${{ env.version }}
