@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
   efb:
-    image: ghcr.io/jiz4oh/efb
+    image: ghcr.io/shaoyou11/efb:latest
     volumes:
       - .:/data
       - "${USERPROFILE}\\My Documents\\WeChat Files\\:/comwechat/Files"

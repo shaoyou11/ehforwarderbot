@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
   efb:
-    image: ghcr.io/jiz4oh/efb
+    image: ghcr.io/shaoyou11/efb:latest
     volumes:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
@@ -18,7 +18,7 @@ services:
 
   comwechat:
     environment:
-        - VNCPASS=jiz4oh
+        - VNCPASS=${COMWECHAT_VNC_PASSWORD:-change-me}
     volumes:
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
@@ -34,7 +34,7 @@ services:
     image: tomsnow1999/docker-com_wechat_robot:latest
 
   efb2:
-    image: ghcr.io/jiz4oh/efb
+    image: ghcr.io/shaoyou11/efb:latest
     volumes:
       - .:/data
       - "./comwechat/efb2/Files/:/comwechat/Files/"
@@ -50,7 +50,7 @@ services:
 
   comwechat2:
     environment:
-        - VNCPASS=jiz4oh
+        - VNCPASS=${COMWECHAT2_VNC_PASSWORD:-change-me}
     volumes:
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"

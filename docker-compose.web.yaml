@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
   efb:
-    image: ghcr.io/jiz4oh/efb:v1.0
+    image: ghcr.io/shaoyou11/efb:latest
     container_name: efb
     network_mode: host
     volumes:
