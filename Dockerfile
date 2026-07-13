@@ -73,6 +73,18 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/pyth
 # Copy executables installed by pip packages
 COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
 
+# APScheduler 3.6 is required by python-telegram-bot 13, but still imports the
+# pkg_resources API removed by setuptools 82. Use the standard metadata API.
+RUN sed -i \
+        -e 's/from pkg_resources import get_distribution, DistributionNotFound/from importlib.metadata import distribution, PackageNotFoundError/' \
+        -e 's/get_distribution(/distribution(/' \
+        -e 's/except DistributionNotFound:/except PackageNotFoundError:/' \
+        -e 's/del get_distribution, DistributionNotFound/del distribution, PackageNotFoundError/' \
+        /usr/local/lib/python3.11/site-packages/apscheduler/__init__.py; \
+    sed -i \
+        's/from pkg_resources import iter_entry_points/from importlib.metadata import entry_points\n\ndef iter_entry_points(group):\n    return entry_points().select(group=group)/' \
+        /usr/local/lib/python3.11/site-packages/apscheduler/schedulers/base.py
+
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
