@@ -27,11 +27,11 @@ RUN pip3 install --no-cache-dir urllib3==1.26.15; \
     pip3 install --no-cache-dir --ignore-installed PyYAML TgCrypto;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@cabf6d8b83849a235fcdb45b474290c2e91ae503 python-telegram-bot pyqrcode; \
+RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7 python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@72ea47bba6e2c66c61d706b0864edc2c669101d8; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@685cba15ef961554f4a7abfa0079892110bc4f21; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@280a6be78ec214c356d72261f9cd181a78698ef6; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@3df22af9a6e77e8032681800af4ffb90a3981b4c; \
     pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@b5f4132f40a0aaa582c5de1994ef5db87143face; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
