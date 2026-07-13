@@ -27,7 +27,7 @@ RUN pip3 install --no-cache-dir urllib3==1.26.15; \
     pip3 install --no-cache-dir --ignore-installed PyYAML TgCrypto;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
+RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@cabf6d8b83849a235fcdb45b474290c2e91ae503 python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@72ea47bba6e2c66c61d706b0864edc2c669101d8; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
