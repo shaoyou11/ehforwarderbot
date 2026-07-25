@@ -40,6 +40,16 @@ class DockerWechatHook:
         time.sleep(5)
         self.reg_hook = subprocess.Popen(['wine','/comwechat/http/WeChatHook.exe'])
         # self.reg_hook = subprocess.run(['wine', 'explorer.exe'])
+
+    def monitor_children(self, poll_interval=1):
+        while True:
+            wechat_status = self.wechat.poll()
+            if wechat_status is not None:
+                raise RuntimeError(f"WeChat process stopped with code {wechat_status}")
+            hook_status = self.reg_hook.poll()
+            if hook_status is not None:
+                raise RuntimeError(f"Hook process stopped with code {hook_status}")
+            time.sleep(poll_interval)
     
     def change_version(self):
         time.sleep(5)
@@ -77,8 +87,7 @@ class DockerWechatHook:
         self.run_wechat()
         self.run_hook()
         self.change_version()
-        while True:
-            time.sleep(1)
+        self.monitor_children()
         print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ ' 感谢使用.', flush=True)
 
 
