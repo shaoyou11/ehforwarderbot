@@ -50,6 +50,8 @@
 
 旧命令中的数字是 EFB 动态组件序号，可能随组件顺序变化。日常使用请优先选择固定的 `/login` 和 `/wechat`。
 
+ComWechat 的 `/getmemberlist`、`/addtogroup`、`/at`、`/changename` 等属于微信会话内命令，不会显示在 Telegram 全局命令菜单中；需进入对应微信群会话后手动输入。
+
 ## 微信管理面板
 
 发送 `/wechat` 后可以使用以下按钮：
