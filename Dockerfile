@@ -31,9 +31,9 @@ RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@72ea47bba6e2c66c61d706b0864edc2c669101d8; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@4a7a389; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@6faaf15722284ee5d34eba9f18a92eb8f187c272; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@3df22af9a6e77e8032681800af4ffb90a3981b4c; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@d3f1616d8c7253ab7f3a7d6e39afa9871b3de097; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@e5d89677ccb7d81235c52b99b5e61d2446038e0f; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
@@ -45,7 +45,7 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "4a7a389-d3f1616"
+ENV EFB_IMAGE_REVISION "6faaf15-e5d8967"
 ENV HTTPS_PROXY ""
 
 # Set timezone
@@ -65,9 +65,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir 'setuptools>=82.0.1'; \
-    # Clean up apk cache
-    rm -rf /var/cache/apk/*;
+    pip3 install --no-cache-dir 'setuptools>=82.0.1';
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
