@@ -33,6 +33,7 @@
 | `/login` | 获取微信登录二维码 | 微信已登录时会直接提示登录成功 |
 | `/wechat` | 打开微信管理面板 | 包含重新扫码、强制退出、自动恢复设置和关闭 |
 | `/watchdog` | 管理自动恢复开关 | 可分别控制总开关、全天事件恢复和凌晨自主检测 |
+| `/namespoiler` | 设置群成员姓名隐藏 | 默认关闭，开启后可点击展开 Telegram 中折叠的微信姓名 |
 | `/chat` | 创建微信会话入口 | 可在命令后附加关键词或正则表达式筛选 |
 | `/link` | 将微信会话绑定到 Telegram 群组 | 适合长期独立管理某个联系人或群聊 |
 | `/unlink_all` | 解除当前群组的全部绑定 | 不会删除 Telegram 云端消息 |
@@ -91,6 +92,7 @@ Watchdog 提供三个独立设置：
 需要持久化的内容应通过 Compose 挂载保存：
 
 - `profiles/`：EFB、Telegram 主端、ComWechat 和中间件配置。
+- `author-name-spoiler.json`：群成员姓名隐藏开关，默认关闭，随 Telegram 主端配置目录持久化。
 - `comwechat/Files/`：Windows 微信文件、媒体缓存及发送临时文件。
 - EFB 数据库：会话绑定、消息映射和中间件状态。
 - Watchdog 状态文件：自动恢复开关和诊断记录。
