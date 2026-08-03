@@ -31,9 +31,9 @@ RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@bdd7f74; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/python-comwechatrobot-http.git@ec4e5f43852e8c29fc2342bf97cb73dcbdc81a8c; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@4b741f1; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@9b463024bd2a652d9e1e494e466c90c7f6c2661b; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/python-comwechatrobot-http.git@c419ed55fa1f1532080de5d9ce58014677224d3a; \
+    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@98da932c1abd5c1cbffbc0d5d6cba8caa50e64ea; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
@@ -45,7 +45,7 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "bdd7f74-4b741f1-mw-abed7e6-51f360e-bridge-ec4e5f4"
+ENV EFB_IMAGE_REVISION "9b46302-98da932-mw-abed7e6-51f360e-bridge-c419ed5"
 ENV HTTPS_PROXY ""
 
 # Set timezone
