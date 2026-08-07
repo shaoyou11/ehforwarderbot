@@ -2,3 +2,4 @@
 WeChat/
 /comwechat/
 .DS_Store
+*.bak-*
