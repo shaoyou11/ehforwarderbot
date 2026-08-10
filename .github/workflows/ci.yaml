@@ -2,6 +2,12 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      canary:
+        description: "Only build the image; never publish it"
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - master
@@ -20,7 +26,7 @@ permissions:
 
 jobs:
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && inputs.canary != true
     permissions:
       contents: read
       packages: write
@@ -120,7 +126,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/efb:${{ env.version }}
 
   canary:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || inputs.canary == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
