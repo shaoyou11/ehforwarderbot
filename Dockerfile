@@ -4,6 +4,8 @@ FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 
+COPY constraints.lock /tmp/constraints.lock
+
 # Install build-time dependencies for apk packages and pip packages
 RUN set -ex; \
     apk add --no-cache --update \
@@ -18,36 +20,45 @@ RUN set -ex; \
         libffi-dev \
         openssl-dev \
         libwebp-dev;
-# Install the direct Python dependencies from a reviewed lock file. Git-based
-# EFB components remain pinned below by commit SHA.
-COPY requirements.lock /tmp/requirements.lock
-RUN pip3 install --no-cache-dir -r /tmp/requirements.lock;
+    # Install python packages using pip with --no-cache-dir
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==1.26.15; \
+    # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
+    # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
+    # Install TgCrypto, ignoring any pre-installed PyYAML
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock --ignore-installed PyYAML TgCrypto;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-telegram-master.git@05ef272a31dde6498be3906d5207502cf582398a; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/python-comwechatrobot-http.git@83d51a0; \
-    pip3 install --no-cache-dir git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@58910650a8f359ff01932380081295c809026bf0; \
-    pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
-    pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7 python-telegram-bot pyqrcode; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@c885dc3f465b0037beabfb0a4050114140de719f; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@83d51a0; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@c21a056; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
 
 ARG EFB_IMAGE_BUILD_TIME=unknown
-ARG EFB_IMAGE_REVISION=9359ee8-c21a056-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525
+ARG EFB_IMAGE_SOURCE_REF=unknown
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
+ENV EFB_IMAGE_REVISION "c885dc3-c21a056-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
-ENV EFB_IMAGE_REVISION "${EFB_IMAGE_REVISION}"
+ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
+
+LABEL org.opencontainers.image.created="${EFB_IMAGE_BUILD_TIME}" \
+      org.opencontainers.image.revision="${EFB_IMAGE_SOURCE_REF}"
+
+COPY constraints.lock /tmp/constraints.lock
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
@@ -66,7 +77,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir 'setuptools==80.9.0';
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools>=82.0.1';
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
