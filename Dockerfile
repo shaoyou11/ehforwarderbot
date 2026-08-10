@@ -33,9 +33,9 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@fcba3cd5b6a12c02f428f84ab77fdef049160377; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@8cb2dc7e7d9a0dc82b754741f007ad3195f2b05b; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@83d51a0; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@5c27b1c0d09ce55a72137e936898a2390f2b5174; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@8c2acb371f08f895073dac78759a5d9fe0e755cf; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
@@ -50,7 +50,7 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "fcba3cd-5c27b1c-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
+ENV EFB_IMAGE_REVISION "8cb2dc7-8c2acb3-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
 ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
