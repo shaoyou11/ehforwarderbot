@@ -1,5 +1,5 @@
 # Stage 1: Builder stage - Install build dependencies and Python packages
-FROM python:3.11-alpine AS builder
+FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4 AS builder
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
@@ -18,16 +18,13 @@ RUN set -ex; \
         libffi-dev \
         openssl-dev \
         libwebp-dev;
-    # Install python packages using pip with --no-cache-dir
-RUN pip3 install --no-cache-dir urllib3==1.26.15; \
-    # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
-    # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
-    pip3 install --no-cache-dir --no-deps --force-reinstall rich Pillow; \
-    # Install TgCrypto, ignoring any pre-installed PyYAML
-    pip3 install --no-cache-dir --ignore-installed PyYAML TgCrypto;
+# Install the direct Python dependencies from a reviewed lock file. Git-based
+# EFB components remain pinned below by commit SHA.
+COPY requirements.lock /tmp/requirements.lock
+RUN pip3 install --no-cache-dir -r /tmp/requirements.lock;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7 python-telegram-bot pyqrcode; \
+RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
@@ -38,14 +35,18 @@ RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
-FROM python:3.11-alpine
+FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+
+ARG EFB_IMAGE_BUILD_TIME=unknown
+ARG EFB_IMAGE_REVISION=9359ee8-c21a056-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "9359ee8-c21a056-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
+ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
+ENV EFB_IMAGE_REVISION "${EFB_IMAGE_REVISION}"
 ENV HTTPS_PROXY ""
 
 # Set timezone
@@ -65,7 +66,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir 'setuptools>=82.0.1';
+    pip3 install --no-cache-dir 'setuptools==80.9.0';
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
