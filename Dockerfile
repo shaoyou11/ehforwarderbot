@@ -35,7 +35,7 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@8cb2dc7e7d9a0dc82b754741f007ad3195f2b05b; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@83d51a0; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@8c2acb371f08f895073dac78759a5d9fe0e755cf; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@e6479ec293f1bce1f9d09c6b1eb4dbdc844375af; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
@@ -50,7 +50,7 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "8cb2dc7-8c2acb3-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
+ENV EFB_IMAGE_REVISION "8cb2dc7-e6479ec-http83d51a0-mw-abed7e6-51f360e-bridge-2032f50-watchdog-f944525"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
 ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
