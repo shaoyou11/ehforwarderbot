@@ -40,13 +40,21 @@ RUN pip3 install --no-cache-dir git+https://github.com/shaoyou11/ehforwarderbot-
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine
 
+ARG EFB_IMAGE_BUILD_TIME=unknown
+ARG EFB_IMAGE_SOURCE_REF=unknown
+
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
 ENV EFB_IMAGE_REVISION "etm2d87a29-cw4d9c347-http83d51a0-mw-abed7e6-51f360e-bridge-ba1e920"
+ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
+ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
+
+LABEL org.opencontainers.image.created="${EFB_IMAGE_BUILD_TIME}" \
+      org.opencontainers.image.revision="${EFB_IMAGE_SOURCE_REF}"
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
