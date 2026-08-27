@@ -13,6 +13,7 @@ on:
       - master
     paths:
       - 'Dockerfile'
+      - 'constraints.lock'
       - '.github/workflows/ci.yaml'
   push:
     branches:
