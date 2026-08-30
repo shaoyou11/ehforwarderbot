@@ -17,4 +17,4 @@ six==1.17.0
 typing-inspection==0.4.2
 typing-extensions==4.16.0
 tzlocal==5.4.4
-urllib3==1.26.15
+urllib3==1.26.20
