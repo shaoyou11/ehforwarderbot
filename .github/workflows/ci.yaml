@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       canary:
-        description: "Only build the image; never publish it"
+        description: "Only build and scan the amd64 image; never publish it"
         required: false
         default: false
         type: boolean
@@ -15,23 +15,45 @@ on:
       - 'Dockerfile'
       - 'constraints.lock'
       - '.github/workflows/ci.yaml'
+      - 'tests/test_ci_workflow.py'
   push:
     branches:
       - master
     tags: [ 'v*.*.*' ]
+  schedule:
+    - cron: '23 18 * * 6'
 
 permissions:
   contents: read
 
 jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: constraints.lock
+      - name: Audit pinned Python dependencies
+        run: |
+          python -m pip install --disable-pip-version-check pip-audit
+          python -m pip_audit -r constraints.lock --disable-pip
+
   deploy:
-    if: github.event_name != 'pull_request' && inputs.canary != true
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.canary != true)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
           fetch-depth: 0
@@ -42,16 +64,10 @@ jobs:
           echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           echo "source_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
-      # https://github.com/actions/checkout/issues/290#issuecomment-680260080
       - name: Extract Docker Info
-        id: docker
         run: |
-          git fetch --tags --force # Retrieve annotated tags. THIS TRICK REALLY HELPS
-          # https://github.com/community/community/discussions/4924
-          # git release do not create annotated tags, so we need use --tags
-          tag=$(git describe --always --tags --abbrev=8 HEAD)
-          version=$tag
-          echo "version=$version" >> $GITHUB_ENV
+          git fetch --tags --force
+          echo "version=$(git describe --always --tags --abbrev=8 HEAD)" >> "$GITHUB_ENV"
 
       - name: Login to ghcr.io
         uses: docker/login-action@v3
@@ -61,24 +77,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Build and push Docker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          cache-from: |
-            type=gha
-            type=gha,stage=builder
-          cache-to: |
-            type=gha,mode=max,stage=builder
-            type=gha,mode=max
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,mode=max,scope=release
           file: 'Dockerfile'
           platforms: linux/amd64,linux/arm64
           context: ./
           push: true
+          sbom: true
+          provenance: mode=max
           build-args: |
             EFB_IMAGE_BUILD_TIME=${{ steps.metadata.outputs.build_time }}
             EFB_IMAGE_SOURCE_REF=${{ steps.metadata.outputs.source_ref }}
@@ -90,7 +104,7 @@ jobs:
     if: github.event_name == 'pull_request' || inputs.canary == true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
           fetch-depth: 0
@@ -99,24 +113,67 @@ jobs:
         run: |
           echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           echo "source_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build canary without publishing
-        uses: docker/build-push-action@v6
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build amd64 canary without publishing
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          cache-from: |
-            type=gha
-            type=gha,stage=builder
-          cache-to: |
-            type=gha,mode=max,stage=builder
-            type=gha,mode=max
+          cache-from: type=gha,scope=canary-amd64
+          cache-to: type=gha,mode=max,scope=canary-amd64
           file: 'Dockerfile'
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           context: ./
           push: false
+          load: true
           build-args: |
             EFB_IMAGE_BUILD_TIME=${{ steps.metadata.outputs.build_time }}
             EFB_IMAGE_SOURCE_REF=${{ steps.metadata.outputs.source_ref }}
-          tags: ghcr.io/${{ github.repository_owner }}/efb:canary
+          tags: efb:canary
+      - name: Smoke test EFB imports
+        run: >-
+          docker run --rm --entrypoint python efb:canary
+          -c "import ehforwarderbot, efb_telegram_master, efb_wechat_comwechat_slave"
+      - name: Block fixable high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: efb:canary
+          vuln-type: os,library
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+  arm64-canary:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build arm64 canary without publishing
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          cache-from: type=gha,scope=canary-arm64
+          cache-to: type=gha,mode=max,scope=canary-arm64
+          file: 'Dockerfile'
+          platforms: linux/arm64
+          context: ./
+          push: false
+          load: true
+          tags: efb:canary-arm64
+      - name: Smoke test EFB imports
+        run: >-
+          docker run --rm --platform linux/arm64 --entrypoint python efb:canary-arm64
+          -c "import ehforwarderbot, efb_telegram_master, efb_wechat_comwechat_slave"
+      - name: Block fixable high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: efb:canary-arm64
+          vuln-type: os,library
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1
