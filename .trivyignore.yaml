@@ -32,9 +32,6 @@ vulnerabilities:
   - id: CVE-2026-49855
     statement: Temporary baseline for the legacy python-telegram-bot 13 compatibility stack; major-stack migration required.
     expired_at: 2026-11-30
-  - id: CVE-2023-43804
-    statement: Temporary baseline for the legacy python-telegram-bot 13 compatibility stack; major-stack migration required.
-    expired_at: 2026-11-30
   - id: CVE-2025-66418
     statement: Temporary baseline for the legacy python-telegram-bot 13 compatibility stack; major-stack migration required.
     expired_at: 2026-11-30
