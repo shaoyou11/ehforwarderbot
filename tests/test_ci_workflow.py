@@ -54,5 +54,5 @@ def test_canaries_block_only_fixable_high_and_critical_vulnerabilities():
 def test_dependency_audit_is_visible_but_non_blocking():
     job = job_block("dependency-audit")
 
-    assert "continue-on-error: true\n" in job
+    assert job.count("continue-on-error: true\n") == 2
     assert "pip-audit" in job
