@@ -57,3 +57,13 @@ def test_dependency_audit_is_visible_but_non_blocking():
 
     assert job.count("continue-on-error: true\n") == 2
     assert "pip-audit" in job
+
+
+def test_all_third_party_actions_are_pinned_to_commit_sha():
+    action_refs = re.findall(
+        r"(?m)^[ \t]*(?:-[ \t]+)?uses:[ \t]+([^\s#]+)", WORKFLOW
+    )
+
+    assert action_refs
+    for action_ref in action_refs:
+        assert re.fullmatch(r"[^@]+@[0-9a-f]{40}", action_ref), action_ref
