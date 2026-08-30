@@ -49,6 +49,7 @@ def test_canaries_block_only_fixable_high_and_critical_vulnerabilities():
         assert "ignore-unfixed: true\n" in job
         assert "severity: HIGH,CRITICAL\n" in job
         assert "exit-code: 1\n" in job
+        assert "trivyignores: .trivyignore.yaml\n" in job
 
 
 def test_dependency_audit_is_visible_but_non_blocking():
