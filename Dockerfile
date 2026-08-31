@@ -34,7 +34,7 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@b39ab75d8625d04194b33f29a269aca30444cb75; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@65c4833b32ae33e63d59a1ad710a910d842d66c9; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@e925989b491d4f485d668abe44a92b354a36d22d; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
@@ -50,11 +50,11 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "b39ab75-e925989-http65c4833-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
+ENV EFB_IMAGE_REVISION "b39ab75-e925989-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
 ENV EFB_CORE_REVISION "${EFB_IMAGE_SOURCE_REF}"
 ENV EFB_TELEGRAM_MASTER_REVISION "b39ab75d8625d04194b33f29a269aca30444cb75"
 ENV EFB_COMWECHAT_SLAVE_REVISION "e925989b491d4f485d668abe44a92b354a36d22d"
-ENV EFB_COMWECHAT_HTTP_REVISION "65c4833b32ae33e63d59a1ad710a910d842d66c9"
+ENV EFB_COMWECHAT_HTTP_REVISION "687e2374dab5aa04c136c173d511ac8a8c89dbb5"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
 ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
