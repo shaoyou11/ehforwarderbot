@@ -56,7 +56,7 @@ def test_dependency_audit_is_visible_but_non_blocking():
     job = job_block("dependency-audit")
 
     assert job.count("continue-on-error: true\n") == 2
-    assert "pip-audit" in job
+    assert "python -m pip_audit -r constraints.lock --disable-pip --no-deps\n" in job
 
 
 def test_all_third_party_actions_are_pinned_to_commit_sha():
