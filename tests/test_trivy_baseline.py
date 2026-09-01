@@ -20,11 +20,11 @@ def test_trivy_baseline_is_precise_explained_and_time_limited():
         assert expiry <= date(2026, 11, 30)
 
 
-def test_latest_compatible_urllib3_patch_is_pinned():
+def test_ptb22_canary_uses_the_audited_urllib3_release():
     root = Path(__file__).parents[1]
     constraints = (root / "constraints.lock").read_text(encoding="utf-8")
     dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
 
-    assert "urllib3==1.26.20" in constraints
-    assert "urllib3==1.26.20" in dockerfile
+    assert "urllib3==2.7.0" in constraints
+    assert "urllib3==2.7.0" in dockerfile
     assert "CVE-2023-43804" not in BASELINE.read_text(encoding="utf-8")

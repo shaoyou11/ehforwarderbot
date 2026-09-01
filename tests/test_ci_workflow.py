@@ -30,6 +30,21 @@ def test_release_is_dual_arch_with_sbom_and_provenance():
     assert "push: true\n" in build
     assert "sbom: true\n" in build
     assert "provenance: mode=max\n" in build
+    assert "github.ref == 'refs/heads/master'" in build
+
+
+def test_ptb22_branch_canary_publishes_only_isolated_tag_after_scan():
+    canary = job_block("canary")
+    publish = job_block("publish-ptb22-canary")
+
+    assert "refs/heads/migration/ptb22-canary" in canary
+    assert "needs: canary\n" in publish
+    assert "platforms: linux/amd64\n" in publish
+    assert "push: true\n" in publish
+    assert "efb:ptb22-canary\n" in publish
+    assert "efb:latest" not in publish
+    assert "telegram.__version__ == '22.8'" in canary
+    assert "pip efb:canary check" in canary
 
 
 def test_weekly_arm64_canary_builds_without_publishing():
