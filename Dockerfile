@@ -21,7 +21,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==1.26.20; \
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==1.26.20 setuptools==80.10.2; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
@@ -33,7 +33,7 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@7da1e3b575ea0db64f537e939006ef46303b1ace; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@a41c91a9259d4715b1b12fef3fe37080497306e8; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@e925989b491d4f485d668abe44a92b354a36d22d; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
@@ -50,9 +50,9 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "7da1e3b-e925989-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
+ENV EFB_IMAGE_REVISION "a41c91a-e925989-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
 ENV EFB_CORE_REVISION "${EFB_IMAGE_SOURCE_REF}"
-ENV EFB_TELEGRAM_MASTER_REVISION "7da1e3b575ea0db64f537e939006ef46303b1ace"
+ENV EFB_TELEGRAM_MASTER_REVISION "a41c91a9259d4715b1b12fef3fe37080497306e8"
 ENV EFB_COMWECHAT_SLAVE_REVISION "e925989b491d4f485d668abe44a92b354a36d22d"
 ENV EFB_COMWECHAT_HTTP_REVISION "687e2374dab5aa04c136c173d511ac8a8c89dbb5"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
@@ -82,7 +82,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools>=82.0.1';
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools==80.10.2';
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
@@ -91,18 +91,6 @@ COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
 
 # Fail the image build if the public Lottie GIF renderer cannot load Cairo.
 RUN python -c "from lottie.exporters.gif import export_gif; from lottie.exporters.cairo import PngRenderer"
-
-# APScheduler 3.6 is required by python-telegram-bot 13, but still imports the
-# pkg_resources API removed by setuptools 82. Use the standard metadata API.
-RUN sed -i \
-        -e 's/from pkg_resources import get_distribution, DistributionNotFound/from importlib.metadata import distribution, PackageNotFoundError/' \
-        -e 's/get_distribution(/distribution(/' \
-        -e 's/except DistributionNotFound:/except PackageNotFoundError:/' \
-        -e 's/del get_distribution, DistributionNotFound/del distribution, PackageNotFoundError/' \
-        /usr/local/lib/python3.11/site-packages/apscheduler/__init__.py; \
-    sed -i \
-        's/from pkg_resources import iter_entry_points/from importlib.metadata import entry_points\n\ndef iter_entry_points(group):\n    return entry_points().select(group=group)/' \
-        /usr/local/lib/python3.11/site-packages/apscheduler/schedulers/base.py
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh

@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - master
+      - migration/ptb22-canary
     tags: [ 'v*.*.*' ]
   schedule:
     - cron: '23 18 * * 6'
@@ -45,8 +46,10 @@ jobs:
 
   deploy:
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.canary != true)
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))) ||
+      (github.event_name == 'workflow_dispatch' && inputs.canary != true &&
+       github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -102,7 +105,9 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/efb:${{ env.version }}
 
   canary:
-    if: github.event_name == 'pull_request' || inputs.canary == true
+    if: >-
+      github.event_name == 'pull_request' || inputs.canary == true ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/migration/ptb22-canary')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -133,7 +138,12 @@ jobs:
       - name: Smoke test EFB imports
         run: >-
           docker run --rm --entrypoint python efb:canary
-          -c "import ehforwarderbot, efb_telegram_master, efb_wechat_comwechat_slave"
+          -c "import importlib.metadata as metadata, telegram, ehforwarderbot, efb_telegram_master, efb_wechat_comwechat_slave;
+          assert telegram.__version__ == '22.8', telegram.__version__;
+          assert efb_telegram_master.__version__ == '2.4.0.dev1', efb_telegram_master.__version__;
+          assert metadata.version('setuptools') == '80.10.2', metadata.version('setuptools')"
+      - name: Verify installed dependency consistency
+        run: docker run --rm --entrypoint pip efb:canary check
       - name: Block fixable high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -143,6 +153,48 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: 1
           trivyignores: .trivyignore.yaml
+
+  publish-ptb22-canary:
+    needs: canary
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/migration/ptb22-canary'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Set build metadata
+        id: metadata
+        run: |
+          echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "source_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Login to ghcr.io
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Publish isolated PTB 22 canary image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          cache-from: type=gha,scope=canary-amd64
+          file: 'Dockerfile'
+          platforms: linux/amd64
+          context: ./
+          push: true
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            EFB_IMAGE_BUILD_TIME=${{ steps.metadata.outputs.build_time }}
+            EFB_IMAGE_SOURCE_REF=${{ steps.metadata.outputs.source_ref }}
+          tags: ghcr.io/${{ github.repository_owner }}/efb:ptb22-canary
 
   arm64-canary:
     if: github.event_name == 'schedule'
