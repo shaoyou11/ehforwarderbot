@@ -141,7 +141,7 @@ jobs:
           -c "import importlib.metadata as metadata, telegram, ehforwarderbot, efb_telegram_master, efb_wechat_comwechat_slave;
           assert telegram.__version__ == '22.8', telegram.__version__;
           assert efb_telegram_master.__version__ == '2.4.0.dev1', efb_telegram_master.__version__;
-          assert metadata.version('setuptools') == '80.10.2', metadata.version('setuptools')"
+          assert metadata.version('setuptools') == '83.0.0', metadata.version('setuptools')"
       - name: Verify installed dependency consistency
         run: docker run --rm --entrypoint pip efb:canary check
       - name: Block fixable high and critical vulnerabilities
