@@ -21,7 +21,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==1.26.20 setuptools==80.10.2; \
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==80.10.2; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
