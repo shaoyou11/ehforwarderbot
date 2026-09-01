@@ -21,7 +21,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==80.10.2; \
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==83.0.0; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
@@ -33,7 +33,7 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@a41c91a9259d4715b1b12fef3fe37080497306e8; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@c9d7d3e143153c18c1bc878f2eea09f2e80b7cdb; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@e925989b491d4f485d668abe44a92b354a36d22d; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
@@ -50,9 +50,9 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "a41c91a-e925989-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
+ENV EFB_IMAGE_REVISION "c9d7d3e-e925989-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
 ENV EFB_CORE_REVISION "${EFB_IMAGE_SOURCE_REF}"
-ENV EFB_TELEGRAM_MASTER_REVISION "a41c91a9259d4715b1b12fef3fe37080497306e8"
+ENV EFB_TELEGRAM_MASTER_REVISION "c9d7d3e143153c18c1bc878f2eea09f2e80b7cdb"
 ENV EFB_COMWECHAT_SLAVE_REVISION "e925989b491d4f485d668abe44a92b354a36d22d"
 ENV EFB_COMWECHAT_HTTP_REVISION "687e2374dab5aa04c136c173d511ac8a8c89dbb5"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
@@ -82,7 +82,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools==80.10.2';
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools==83.0.0';
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
