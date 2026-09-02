@@ -27,6 +27,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: image-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   dependency-audit:
     runs-on: ubuntu-latest
@@ -124,7 +128,9 @@ jobs:
       - name: Build amd64 canary without publishing
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          cache-from: type=gha,scope=canary-amd64
+          cache-from: |
+            type=gha,scope=canary-amd64
+            type=gha,scope=release
           cache-to: type=gha,mode=max,scope=canary-amd64
           file: 'Dockerfile'
           platforms: linux/amd64
@@ -211,7 +217,9 @@ jobs:
       - name: Build arm64 canary without publishing
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          cache-from: type=gha,scope=canary-arm64
+          cache-from: |
+            type=gha,scope=canary-arm64
+            type=gha,scope=release
           cache-to: type=gha,mode=max,scope=canary-arm64
           file: 'Dockerfile'
           platforms: linux/arm64

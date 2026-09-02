@@ -3,6 +3,7 @@ FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
+ENV PIP_DEFAULT_TIMEOUT=30 PIP_RETRIES=2
 
 COPY constraints.lock /tmp/constraints.lock
 
@@ -21,7 +22,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==83.0.0; \
+RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==83.0.0; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
@@ -29,15 +30,18 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --ignore-installed PyYAML TgCrypto;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7 python-telegram-bot pyqrcode; \
+RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/ehforwarderbot-core.git@abf737397cdea2dde991b0cb547877157a031cf7 python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@abed7e68cc89e4e04dd6b6a39c6088e80dad94ac; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@9bbbd973c7e5130a060a0351de61d46529942a14; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@31549fb93b665668bbde927922f7a34be2aea108; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
+
+# Keep stable dependencies reusable when a channel changes.
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@c08a867ff4acc6038476a6d57b2657069628d257
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@623c1b749b2ca572cea6ce1cb132a89467d1f51a
+RUN pip3 check
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
@@ -50,10 +54,10 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "9bbbd97-31549fb-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
+ENV EFB_IMAGE_REVISION "623c1b7-c08a867-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-0b343fa"
 ENV EFB_CORE_REVISION "${EFB_IMAGE_SOURCE_REF}"
-ENV EFB_TELEGRAM_MASTER_REVISION "9bbbd973c7e5130a060a0351de61d46529942a14"
-ENV EFB_COMWECHAT_SLAVE_REVISION "31549fb93b665668bbde927922f7a34be2aea108"
+ENV EFB_TELEGRAM_MASTER_REVISION "623c1b749b2ca572cea6ce1cb132a89467d1f51a"
+ENV EFB_COMWECHAT_SLAVE_REVISION "c08a867ff4acc6038476a6d57b2657069628d257"
 ENV EFB_COMWECHAT_HTTP_REVISION "687e2374dab5aa04c136c173d511ac8a8c89dbb5"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
 ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
