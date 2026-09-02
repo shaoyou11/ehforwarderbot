@@ -82,3 +82,10 @@ def test_all_third_party_actions_are_pinned_to_commit_sha():
     assert action_refs
     for action_ref in action_refs:
         assert re.fullmatch(r"[^@]+@[0-9a-f]{40}", action_ref), action_ref
+
+
+def test_production_never_reads_pr_cache():
+    release = job_block("deploy")
+    assert "cache-from: type=gha,scope=release\n" in release
+    assert "scope=canary" not in release
+    assert "type=gha,scope=release" in job_block("canary")
