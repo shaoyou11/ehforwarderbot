@@ -25,6 +25,6 @@ def test_ptb22_canary_uses_the_audited_urllib3_release():
     constraints = (root / "constraints.lock").read_text(encoding="utf-8")
     dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
 
-    assert "urllib3==2.7.0" in constraints
-    assert "urllib3==2.7.0" in dockerfile
+    assert "urllib3==2.8.0" in constraints
+    assert "urllib3==2.8.0" in dockerfile
     assert "CVE-2023-43804" not in BASELINE.read_text(encoding="utf-8")
