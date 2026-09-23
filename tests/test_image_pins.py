@@ -5,10 +5,10 @@ DOCKERFILE = (Path(__file__).parents[1] / "Dockerfile").read_text(encoding="utf-
 
 
 def test_image_pins_login_recovery_revisions_and_preserves_http_hook():
-    assert "efb-telegram-master.git@64cbe34c373a86985318ef8a6c9831feea067425" in DOCKERFILE
-    assert "python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5" in DOCKERFILE
-    assert "efb-wechat-comwechat-slave.git@0fb6199ae06812ec703e7dcbb4802fc30bbf0660" in DOCKERFILE
-    assert 'ENV EFB_IMAGE_REVISION "64cbe34-0fb6199-http687e237-' in DOCKERFILE
+    assert "efb-telegram-master.git@9816e65fa50c93fd5272260aff045a23e4386ed7" in DOCKERFILE
+    assert "python-comwechatrobot-http.git@662ec2f66c7aebbeee39507cce6c3862edb0ef7f" in DOCKERFILE
+    assert "efb-wechat-comwechat-slave.git@235b66e9d61bbe00db4ee42b359e8bd615bb8439" in DOCKERFILE
+    assert 'ENV EFB_IMAGE_REVISION "9816e65-235b66e-http662ec2f-' in DOCKERFILE
     assert "bridge-13d443a-watchdog-edde14a" in DOCKERFILE
-    assert 'ENV EFB_TELEGRAM_MASTER_REVISION "64cbe34c373a86985318ef8a6c9831feea067425"' in DOCKERFILE
-    assert 'ENV EFB_COMWECHAT_SLAVE_REVISION "0fb6199ae06812ec703e7dcbb4802fc30bbf0660"' in DOCKERFILE
+    assert 'ENV EFB_TELEGRAM_MASTER_REVISION "9816e65fa50c93fd5272260aff045a23e4386ed7"' in DOCKERFILE
+    assert 'ENV EFB_COMWECHAT_SLAVE_REVISION "235b66e9d61bbe00db4ee42b359e8bd615bb8439"' in DOCKERFILE

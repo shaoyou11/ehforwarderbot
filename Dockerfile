@@ -23,7 +23,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.7.0 setuptools==83.0.0; \
+RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.8.0 setuptools==83.0.0; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
@@ -39,9 +39,9 @@ RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+h
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
 # Keep stable dependencies reusable when a channel changes.
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@687e2374dab5aa04c136c173d511ac8a8c89dbb5
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@11e334f1192b022e5d3d2181ce15a6758dc5c6a7
-RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@4414fd159d2ab21f03095774715718c75b01752e
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/python-comwechatrobot-http.git@662ec2f66c7aebbeee39507cce6c3862edb0ef7f
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-wechat-comwechat-slave.git@235b66e9d61bbe00db4ee42b359e8bd615bb8439
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@9816e65fa50c93fd5272260aff045a23e4386ed7
 RUN pip3 check
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
@@ -55,11 +55,11 @@ ENV TZ 'Asia/Shanghai'
 ENV EFB_DATA_PATH /data/
 ENV EFB_PARAMS ""
 ENV EFB_PROFILE "default"
-ENV EFB_IMAGE_REVISION "4414fd1-11e334f-http687e237-mw-abed7e6-51f360e-bridge-13d443a-watchdog-edde14a"
+ENV EFB_IMAGE_REVISION "9816e65-235b66e-http662ec2f-mw-abed7e6-51f360e-bridge-13d443a-watchdog-edde14a"
 ENV EFB_CORE_REVISION "${EFB_IMAGE_SOURCE_REF}"
-ENV EFB_TELEGRAM_MASTER_REVISION "4414fd159d2ab21f03095774715718c75b01752e"
-ENV EFB_COMWECHAT_SLAVE_REVISION "11e334f1192b022e5d3d2181ce15a6758dc5c6a7"
-ENV EFB_COMWECHAT_HTTP_REVISION "687e2374dab5aa04c136c173d511ac8a8c89dbb5"
+ENV EFB_TELEGRAM_MASTER_REVISION "9816e65fa50c93fd5272260aff045a23e4386ed7"
+ENV EFB_COMWECHAT_SLAVE_REVISION "235b66e9d61bbe00db4ee42b359e8bd615bb8439"
+ENV EFB_COMWECHAT_HTTP_REVISION "662ec2f66c7aebbeee39507cce6c3862edb0ef7f"
 ENV EFB_IMAGE_BUILD_TIME "${EFB_IMAGE_BUILD_TIME}"
 ENV EFB_IMAGE_SOURCE_REF "${EFB_IMAGE_SOURCE_REF}"
 ENV HTTPS_PROXY ""
