@@ -30,6 +30,12 @@ class SyncTests(unittest.TestCase):
         atomic_json(self.root/'mapping.json',[{'source':'honus.comwechat person','target':'blueset.wechat one'}])
         self.config={'control_root':str(self.root),'profiles':self.profiles,'pending_bindings':2}
     def db(self,backend):return sqlite3.connect(Path(self.profiles[backend])/'blueset.telegram/tgdata.db')
+    def test_ambiguous_mapping_aborts_before_any_write(self):
+        atomic_json(self.root/'mapping.json',[{'source':'honus.comwechat a','target':'blueset.wechat one'},{'source':'honus.comwechat b','target':'blueset.wechat one'}])
+        with self.db('comwechat') as c:c.execute("INSERT INTO chatassoc VALUES (1,'group','honus.comwechat a')")
+        with self.assertRaises(ValueError):synchronize(self.config,'web')
+        with self.db('comwechat') as c:self.assertEqual(c.execute('SELECT count(*) FROM chatassoc').fetchone()[0],1)
+
     def test_bidirectional_sync_preserves_unmapped_history_and_secrets(self):
         with self.db('web') as c:c.execute("INSERT INTO topicassoc VALUES (1,'forum','42','blueset.wechat one')")
         with self.db('comwechat') as c:c.execute("INSERT INTO topicassoc VALUES (1,'forum','99','honus.comwechat unknown')")
@@ -65,6 +71,13 @@ class SyncTests(unittest.TestCase):
         with self.db('comwechat') as c:self.assertEqual(c.execute('SELECT slave_uid FROM topicassoc').fetchone()[0],'honus.comwechat unknown')
 
 class SwitchTests(unittest.TestCase):
+    def test_unknown_container_state_is_not_treated_as_stopped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'secret').write_bytes(b'secret')
+            w=Worker({'control_root':tmp,'containers':{'web':'web-container'}})
+            with patch.object(w,'run',side_effect=RuntimeError('Docker unavailable')):
+                with self.assertRaises(RuntimeError):w.running('web')
+
     def test_stale_request_preserves_waiting_login(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'secret').write_bytes(b'secret');(root/'processed').mkdir()
@@ -81,6 +94,21 @@ class SwitchTests(unittest.TestCase):
             now=time.time();atomic_json(root/'web-login.json',{'updated':now,'qr_delivered':True})
             with patch.object(w,'running',return_value=True):h=w.wait_ready('web',now-1)
             self.assertFalse(h['wechat_online'])
+
+    def test_stop_timeout_still_restores_original_frontend(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'secret').write_bytes(b'secret');atomic_json(root/'state.json',{'active':'web','phase':'idle'});atomic_json(root/'web-health.json',{'updated':time.time(),'queue_size':0,'inflight':0})
+            w=Worker({'control_root':tmp,'containers':{'web':'web-container','comwechat':'native-container'},'watchdog':'watchdog'})
+            running={'web':True,'comwechat':False}
+            def run(args,timeout=45):
+                if args[:2]==['docker','stop'] and args[-1]=='web-container':
+                    running['web']=False;raise subprocess.TimeoutExpired('docker',45)
+                if args[:2]==['docker','start'] and args[-1]=='web-container':running['web']=True
+                return ''
+            with patch.object(w,'run',side_effect=run),patch.object(w,'running',side_effect=lambda b:running[b]),patch.object(w,'synchronize'),patch.object(w,'notify'):
+                with self.assertRaises(subprocess.TimeoutExpired):w.switch('comwechat')
+            self.assertTrue(running['web']);self.assertFalse(running['comwechat'])
 
     def test_switch_stops_source_before_target_and_rolls_back(self):
         with tempfile.TemporaryDirectory() as tmp:

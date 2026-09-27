@@ -23,7 +23,15 @@ def rows(path):
 def synchronize(config,active,force=False):
     root=Path(config['control_root']);other='comwechat' if active=='web' else 'web'
     source=Path(config['profiles'][active]);target=Path(config['profiles'][other])
-    mappings=read_json(root/'mapping.json',[])
+    mappings=json.loads((root/'mapping.json').read_text())
+    if not isinstance(mappings,list) or not mappings:raise ValueError('missing identity mapping')
+    sources=set();targets=set()
+    for row in mappings:
+        if not isinstance(row,dict):raise ValueError('invalid identity mapping')
+        source_id=row.get('source');target_id=row.get('target')
+        if not isinstance(source_id,str) or not isinstance(target_id,str) or not source_id.startswith('honus.comwechat ') or not target_id.startswith('blueset.wechat ') or row.get('confirmed') is False:raise ValueError('invalid identity mapping')
+        if source_id in sources or target_id in targets:raise ValueError('ambiguous identity mapping')
+        sources.add(source_id);targets.add(target_id)
     table={r['target']:r['source'] for r in mappings} if active=='web' else {r['source']:r['target'] for r in mappings}
     original=rows(source/'blueset.telegram/tgdata.db')
     plan={kind:[{**r,'slave_uid':table[r['slave_uid']]} for r in original[kind] if r['slave_uid'] in table] for kind in ('chat','topic')}

@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock,create_autospec
+from unittest.mock import MagicMock,create_autospec,patch
 from telegram import Bot
 from telegram.ext import ApplicationHandlerStop
 from frontend import Frontend
@@ -9,6 +9,7 @@ from protocol import atomic_json
 
 class Commands(unittest.TestCase):
     def setUp(self):
+        api=patch('frontend.bot_api_status',return_value='可访问');api.start();self.addCleanup(api.stop)
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.f=Frontend.__new__(Frontend);self.f.root=Path(self.tmp.name);self.f.backend='web';self.f.admins=[1];self.f.secret=b'test';self.f.channel=MagicMock();self.f.bot=create_autospec(Bot,instance=True);self.f.channel.operations_ui.health_text.return_value='原生完整巡检内容';self.f.channel.operations_ui.markup.return_value.inline_keyboard=[]
         self.u=MagicMock();self.u.effective_user.id=1;self.u.effective_chat.type='private'
@@ -29,6 +30,12 @@ class Commands(unittest.TestCase):
     def test_common_version_not_intercepted_as_native(self):
         from frontend import NATIVE_ONLY
         self.assertNotIn('version',NATIVE_ONLY)
+    def test_unchanged_refresh_is_not_reported_as_failure(self):
+        from telegram.error import BadRequest
+        self.u.callback_query.data='efbview:status'
+        self.u.callback_query.edit_message_text.side_effect=BadRequest('Message is not modified')
+        with self.assertRaises(ApplicationHandlerStop):self.f.view_callback(self.u,None)
+
     def test_private_umask_does_not_hide_status(self):
         import os
         old=os.umask(0o077)

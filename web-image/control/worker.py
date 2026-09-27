@@ -20,8 +20,9 @@ class Worker:
         if p.returncode:raise RuntimeError('command failed')
         return p.stdout
     def running(self,backend):
-        try:return self.run(['docker','inspect','-f','{{.State.Running}}',self.config['containers'][backend]],10).strip()=='true'
-        except (RuntimeError,subprocess.TimeoutExpired):return False
+        state=self.run(['docker','inspect','-f','{{.State.Running}}',self.config['containers'][backend]],10).strip()
+        if state not in {'true','false'}:raise RuntimeError('container state unavailable')
+        return state=='true'
     def save(self,**changes):
         self.state.update(changes);self.state['updated']=time.time();atomic_json(self.root/'state.json',self.state)
     def notify(self,text):
@@ -61,11 +62,12 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             if time.time()-h.get('updated',0)<=20 and h.get('queue_size') in (0,None) and h.get('inflight',0)==0:break
             if time.monotonic()>=deadline:raise RuntimeError('source queue not drained')
             time.sleep(1)
-        # Stop fully before starting the other poller.
-        self.run(['docker','stop','-t','35',self.config['containers'][previous]],45)
-        if self.running(previous):raise RuntimeError('source failed to stop')
+        # Stop errors also require reconciliation: Docker may have stopped it
+        # even when the client timed out. Never leave both frontends down.
         since=time.time()
         try:
+            self.run(['docker','stop','-t','35',self.config['containers'][previous]],45)
+            if self.running(previous):raise RuntimeError('source failed to stop')
             if target=='comwechat':self.run(['docker','start',self.config['watchdog']],20)
             else:self.run(['docker','stop','-t','15',self.config['watchdog']],25)
             self.run(['docker','start',self.config['containers'][target]],20)
@@ -93,7 +95,8 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             if request.get('requested_backend')!=self.state['active']:raise ValueError('stale backend request')
             request_validated=True
             if checked['action']=='sync':
-                self.save(phase='syncing');result=self.synchronize();self.save(phase='idle',last_result='已同步确认映射，未识别项继续保留');self.notify('EFB 配置同步完成。已映射 '+str(result['mapped'])+' 条，待核对 '+str(result['pending'])+' 条。')
+                previous_phase=self.state.get('phase','idle')
+                self.save(phase='syncing');result=self.synchronize();self.save(phase='awaiting_login' if previous_phase=='awaiting_login' else 'idle',last_result='已同步确认映射，未识别项继续保留');self.notify('EFB 配置同步完成。已映射 '+str(result['mapped'])+' 条，待核对 '+str(result['pending'])+' 条。')
             else:self.switch(checked['action'])
         except ValueError:
             if request_validated:

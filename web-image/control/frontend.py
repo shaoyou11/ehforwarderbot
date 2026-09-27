@@ -7,9 +7,11 @@ import threading
 import time
 from pathlib import Path
 from telegram import InlineKeyboardButton,InlineKeyboardMarkup,BotCommand,BotCommandScopeAllPrivateChats,BotCommandScopeAllGroupChats,BotCommandScopeChat
+from telegram.error import BadRequest
 from telegram.ext import CommandHandler,CallbackQueryHandler,ApplicationHandlerStop
 from ehforwarderbot import coordinator
 from protocol import atomic_json,read_json,button,verify
+from health import bot_api_status
 
 NAMES={'web':'微信网页版','comwechat':'ComWechat'}
 COMMON=[('backend','通用｜切换方案与同步设置'),('status','通用｜当前方案、登录与同步状态'),('sync','通用｜同步已确认的绑定和个性化'),('link','通用｜管理会话绑定'),('help','通用｜查看当前方案说明')]
@@ -69,8 +71,7 @@ class Frontend:
         except sqlite3.Error:pass
         try:space=f'{shutil.disk_usage("/data").free/(2**30):.1f} GiB'
         except OSError:space='未知'
-        try:api='可访问' if self.bot.get_me(read_timeout=5,connect_timeout=5) else '待确认'
-        except Exception:api='检查失败（不等于微信掉线）'
+        api=bot_api_status()
         spoiler=getattr(getattr(self.channel,'author_name_spoiler_store',None),'enabled',None)
         sync_time=time.strftime('%m-%d %H:%M:%S',time.localtime(sync['updated'])) if sync.get('updated') else '未记录'
         return ('EFB 综合状态\n\n'+prefix+
@@ -136,7 +137,10 @@ class Frontend:
         q=update.callback_query
         if not self.authorized(update):q.answer('仅管理员私聊可操作。');raise ApplicationHandlerStop
         action=q.data.split(':',1)[1];q.answer()
-        if action=='status':q.edit_message_text(self.overview(),reply_markup=self.status_markup())
+        if action=='status':
+            try:q.edit_message_text(self.overview(),reply_markup=self.status_markup())
+            except BadRequest as error:
+                if 'message is not modified' not in str(error).lower():raise
         elif action=='backend':self.panel(update)
         else:q.edit_message_text('通用：绑定 /link、会话 /chat、筛选 /filter、姓名隐藏 /namespoiler、图片复用 /imageperception、存储 /cleanup、版本 /version。\n网页版：/web_status、/web_login。\nComWechat：/cw_status、/wechat、/login、/bridge、/watchdog、/trace、/issues。\n只有当前方案的专属操作可用。',reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('返回综合状态',callback_data='efbview:status')]]))
         raise ApplicationHandlerStop
