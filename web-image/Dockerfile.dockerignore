@@ -1,0 +1,5 @@
+**
+!constraints.lock
+!web-image/
+!web-image/**
+web-image/__pycache__/

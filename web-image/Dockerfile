@@ -41,6 +41,7 @@ RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+h
 # Keep stable dependencies reusable when a channel changes.
 RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/shaoyou11/efb-telegram-master.git@9816e65fa50c93fd5272260aff045a23e4386ed7
 RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/Ovler-Young/efb-wechat-slave.git@7eeec172bf347ad7eef1c2222fe2048aefc4b59d
+RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock lottie==0.7.2 cairosvg==2.9.1
 COPY web-image/patch.py /tmp/patch-web.py
 RUN python /tmp/patch-web.py && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
