@@ -62,12 +62,22 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
 """
         try:self.run(['docker','exec',container,'python','-c',code,profile,text],25)
         except Exception:pass
-    def wait_ready(self,backend,since,seconds=90):
-        end=time.monotonic()+seconds
+    def wait_ready(self,backend,since,seconds=180):
+        started=time.monotonic();end=started+seconds
+        progress_sent=False;login_confirmed=False
         while time.monotonic()<end:
+            if not progress_sent and time.monotonic()>started+25:
+                self.save(last_result="正在启动目标方案，登录后还需初始化转发")
+                self.notify("正在启动 "+NAMES[backend]+"，登录后还需初始化转发，请稍候。完成或失败会另行通知。")
+                progress_sent=True
             h=read_json(self.root/f'{backend}-health.json')
             if self.running(backend) and h.get('updated',0)>since and h.get('ready'):return h
             login=read_json(self.root/'web-login.json') if backend=='web' else {}
+            if not login_confirmed and login.get('updated',0)>since and login.get('phase')=='logged_in':
+                login_confirmed=True
+                end=max(end,time.monotonic()+90)
+                self.save(last_result='微信认证成功，正在初始化 Telegram 转发')
+                self.notify('微信认证成功，正在初始化 Telegram 转发；就绪后会再次通知。')
             if self.running(backend) and login.get('updated',0)>since and login.get('qr_delivered'):
                 return {'ready':False,'wechat_online':False}
             if not self.running(backend):raise RuntimeError('target exited')
@@ -83,6 +93,8 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         if self.running(target):raise RuntimeError('target already running')
         self.save(phase='switching',last_result='正在检查并同步')
         self.synchronize()
+        self.save(last_result='绑定与配置同步完成，正在切换转发进程')
+        self.notify('绑定与配置同步完成，正在切换到 '+NAMES[target]+'。如需登录，会提示扫码或手机确认。')
         deadline=time.monotonic()+30
         while True:
             h=read_json(self.root/f'{previous}-health.json')
@@ -103,7 +115,7 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             if self.running(previous):raise RuntimeError('multiple active backends')
             self.save(previous=previous,active=target,phase='idle' if health.get('wechat_online') is not False else 'awaiting_login',last_result='切换成功，登录状态请查看 /status')
             self.settle(target)
-            self.notify('EFB 已切换到 '+('微信网页版' if target=='web' else 'ComWechat')+'。请发送 /status 查看登录状态。')
+            self.notify('EFB 已切换到 '+NAMES[target]+('，微信已登录，转发已就绪。' if health.get('wechat_online') is True else '，请完成微信登录。')+'请发送 /status 查看状态。')
         except Exception:
             self.run(['docker','stop','-t','15',self.config['containers'][target]],25)
             self.prepare(previous)
@@ -164,8 +176,13 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         while True:
             if self.state.get('phase')=='awaiting_login':
                 active=self.state['active'];h=read_json(self.root/f'{active}-health.json')
+                login=read_json(self.root/'web-login.json') if active=='web' else {}
+                if login.get('phase')=='logged_in' and login.get('updated',0)>max(self.state.get('login_notice',0),self.state.get('updated',0)):
+                    self.save(login_notice=login['updated'],last_result='微信认证成功，正在初始化 Telegram 转发')
+                    self.notify('微信认证成功，正在初始化 Telegram 转发；就绪后会再次通知。')
                 if time.time()-h.get('updated',0)<20 and h.get('ready') and h.get('wechat_online') is True:
                     self.save(phase='idle',last_result='扫码登录完成，当前方案已就绪')
+                    self.notify(NAMES[active]+'已登录，Telegram 转发已就绪。登录二维码将自动撤回。')
                 elif not self.running(active):
                     previous=self.state.get('previous','comwechat')
                     self.prepare(previous)

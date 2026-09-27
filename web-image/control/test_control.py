@@ -95,6 +95,19 @@ class SwitchTests(unittest.TestCase):
             with patch.object(w,'running',return_value=True):h=w.wait_ready('web',now-1)
             self.assertFalse(h['wechat_online'])
 
+    def test_authenticated_web_gets_initialization_grace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'secret').write_bytes(b'secret')
+            w=Worker({'control_root':tmp});clock=[0]
+            def read(path):
+                if path.name=='web-login.json':return {'updated':2,'phase':'logged_in','qr_delivered':False}
+                return {'updated':2,'ready':clock[0]>=60,'wechat_online':True}
+            def sleep(seconds):clock[0]+=10
+            with patch('worker.time.monotonic',side_effect=lambda:clock[0]),patch('worker.time.sleep',side_effect=sleep),patch('worker.read_json',side_effect=read),patch.object(w,'running',return_value=True),patch.object(w,'notify') as notify:
+                result=w.wait_ready('web',1,seconds=30)
+            self.assertTrue(result['ready'])
+            self.assertEqual(sum('认证成功' in c.args[0] for c in notify.call_args_list),1)
+
     def test_stop_timeout_still_restores_original_frontend(self):
         import subprocess
         with tempfile.TemporaryDirectory() as tmp:
