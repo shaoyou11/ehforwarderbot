@@ -69,3 +69,11 @@ for name in ("__init__.py", "wizard.py"):
     p = root / name
     s = p.read_text().replace("from pkg_resources import resource_filename", "from importlib.resources import files\n\ndef resource_filename(package, resource):\n    return str(files(package).joinpath(resource))\n")
     p.write_text(s)
+
+# Current EFB requires this capability even when the web API cannot provide it.
+p = root / "__init__.py"
+s = p.read_text()
+needle = "    def get_chat_picture("
+assert s.count(needle) == 1
+s = s.replace(needle, "    def get_chat_member_picture(self, chat_member):\n        raise EFBOperationNotSupported()\n\n" + needle)
+p.write_text(s)

@@ -18,6 +18,15 @@ class WebImageTests(unittest.TestCase):
         for module in ["efb_wechat_slave", "efb_telegram_master", "ehforwarderbot"]:
             importlib.import_module(module)
 
+    def test_channel_implements_current_core_contract(self):
+        import inspect
+        from efb_wechat_slave import WeChatChannel
+        from ehforwarderbot.exceptions import EFBOperationNotSupported
+        self.assertFalse(inspect.isabstract(WeChatChannel))
+        channel = object.__new__(WeChatChannel)
+        with self.assertRaises(EFBOperationNotSupported):
+            channel.get_chat_member_picture(None)
+
     def test_native_channel_absent(self):
         self.assertIsNone(importlib.util.find_spec("efb_wechat_comwechat_slave"))
 
