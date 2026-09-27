@@ -64,6 +64,13 @@ class BindingSyncTests(unittest.TestCase):
         with self.assertRaises(ValueError):apply_web_plan(plan,dst,self.root/'backup.db')
         with sqlite3.connect(dst) as c:self.assertEqual(c.execute('SELECT count(*) FROM chatassoc').fetchone()[0],0)
 
+    def test_original_multi_link_chat_remains_multi_linked(self):
+        dst=self.web_database()
+        plan={'chat':[{'master_uid':'shared','slave_uid':'blueset.wechat '+s} for s in ['one','two']], 'topic':[]}
+        apply_web_plan(plan,dst,self.root/'backup.db')
+        with sqlite3.connect(dst) as c:
+            self.assertEqual(c.execute('SELECT count(*) FROM chatassoc').fetchone()[0],2)
+
     def test_apply_refuses_original_profile(self):
         with self.assertRaises(ValueError):apply_web_plan({'chat':[],'topic':[]},self.db,self.root/'backup.db')
 

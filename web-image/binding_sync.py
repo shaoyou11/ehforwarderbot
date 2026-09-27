@@ -94,11 +94,14 @@ def apply_web_plan(plan, destination, backup):
         with sqlite3.connect(backup) as copy:
             con.backup(copy)
         con.execute('BEGIN IMMEDIATE')
+        allowed = {}
+        for row in plan['chat']:
+            allowed.setdefault(row['master_uid'], set()).add(row['slave_uid'])
         for row in plan['chat']:
             existing = con.execute('SELECT slave_uid FROM chatassoc WHERE master_uid=?', (row['master_uid'],)).fetchall()
-            if any(uid != row['slave_uid'] for (uid,) in existing):
+            if any(uid not in allowed[row['master_uid']] for (uid,) in existing):
                 raise ValueError('existing chat destination conflicts with import')
-            if not existing:
+            if (row['slave_uid'],) not in existing:
                 con.execute('INSERT INTO chatassoc(master_uid,slave_uid) VALUES (?,?)', (row['master_uid'],row['slave_uid']))
         for row in plan['topic']:
             key = (str(row['topic_chat_id']), str(row['message_thread_id']))
