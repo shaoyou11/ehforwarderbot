@@ -45,10 +45,12 @@ def synchronize(config,active,force=False):
             for key in FLAGS:
                 if key in src.get('flags',{}):dst.setdefault('flags',{})[key]=src['flags'][key]
         elif name.endswith('delivery-policies.json'):
-            # Keep per-chat rules until they can be mapped without guessing.
             for key,value in src.items():
                 if key!='rules':dst[key]=value
-            if src.get('rules'):pending_config.append(name+':rules')
+            rules={k:v for k,v in dst.get('rules',{}).items() if k not in set(table.values())}
+            rules.update({table[k]:v for k,v in src.get('rules',{}).items() if k in table})
+            dst['rules']=rules
+            if any(k not in table for k in src.get('rules',{})):pending_config.append(name+':unmapped-rules')
         else:
             for key,value in src.items():
                 if key not in {'comwechatretrive','samemessagegroup','samemessageprivate'}:dst[key]=value

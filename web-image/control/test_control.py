@@ -42,6 +42,16 @@ class SyncTests(unittest.TestCase):
         with self.db('web') as c:self.assertEqual(c.execute('SELECT message_thread_id FROM topicassoc').fetchone()[0],'43')
         self.assertIn('web-secret',(Path(self.profiles['web'])/'blueset.telegram/config.yaml').read_text())
         self.assertFalse(synchronize(self.config,'comwechat')['changed'])
+    def test_mapped_filters_sync_without_overwriting_unknown_rules(self):
+        for backend,rules in [('web',{'blueset.wechat one':{'policy':'silent'}}),('comwechat',{'honus.comwechat unknown':{'policy':'filtered'}})]:
+            p=Path(self.profiles[backend])/'blueset.telegram/delivery-policies.json'
+            p.write_text(json.dumps({'version':1,'rules':rules,'settings':{}}))
+        synchronize(self.config,'web')
+        p=Path(self.profiles['comwechat'])/'blueset.telegram/delivery-policies.json'
+        rules=json.loads(p.read_text())['rules']
+        self.assertEqual(rules['honus.comwechat person']['policy'],'silent')
+        self.assertEqual(rules['honus.comwechat unknown']['policy'],'filtered')
+
     def test_unbind_known_identity_propagates_but_unknown_is_retained(self):
         with self.db('comwechat') as c:
             c.execute("INSERT INTO chatassoc VALUES (1,'a','honus.comwechat person')")
