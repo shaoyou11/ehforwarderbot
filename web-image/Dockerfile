@@ -43,7 +43,8 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
 RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://github.com/Ovler-Young/efb-wechat-slave.git@7eeec172bf347ad7eef1c2222fe2048aefc4b59d
 RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock lottie==0.7.2 cairosvg==2.9.1
 COPY web-image/patch.py /tmp/patch-web.py
-RUN python /tmp/patch-web.py && pip3 check
+COPY web-image/compile_zh.py /tmp/compile-zh.py
+RUN python /tmp/patch-web.py && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
@@ -109,7 +110,7 @@ RUN addgroup -g 10001 efbweb && adduser -D -u 10001 -G efbweb efbweb
 RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
-ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE=zh_CN
 RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]

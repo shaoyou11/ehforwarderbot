@@ -50,6 +50,20 @@ class WebImageTests(unittest.TestCase):
             self.assertIs(message.reply_to_message, reply)
             self.assertEqual(processor.process_telegram_message.call_args.kwargs["quote"], expected_quote)
 
+    def test_simplified_chinese_ui_catalogs(self):
+        import gettext
+        import efb_wechat_slave
+        import efb_telegram_master
+        cases = {
+            efb_telegram_master: ["Cancel", "Next >", "Please choose the chat you want to link with...", "Error: No recipient specified.\nPlease reply to a previous message. (MS02)"],
+            efb_wechat_slave: ["Confirm on your phone.", "Successfully logged in.", "WeChat server has logged you out. Please log in again when you are ready."],
+        }
+        for module, messages in cases.items():
+            translator = gettext.translation(module.__name__, str(Path(module.__file__).parent / "locale"), languages=["zh_CN"])
+            for message in messages:
+                self.assertNotEqual(translator.gettext(message), message)
+        self.assertEqual(efb_wechat_slave.WeChatChannel.channel_name, "微信网页版")
+
     def test_native_channel_absent(self):
         self.assertIsNone(importlib.util.find_spec("efb_wechat_comwechat_slave"))
 

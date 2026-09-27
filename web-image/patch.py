@@ -97,3 +97,9 @@ old = '''self.bridge_dead_letter_guard = BridgeDeadLetterGuard(
         )'''
 assert s.count(old) == 1
 p.write_text(s.replace(old, old.replace('settings=self.bridge_queue_settings,', 'settings=self.bridge_queue_settings,\n            autostart=False,')))
+
+# Display names are local UI text, while the channel ID stays unchanged.
+p = root / "__init__.py"
+s = p.read_text()
+assert 'channel_name = "WeChat Slave"' in s
+p.write_text(s.replace('channel_name = "WeChat Slave"', 'channel_name = "微信网页版"'))
