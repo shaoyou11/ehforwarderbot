@@ -74,3 +74,9 @@ python web-image/binding_sync.py --source-db /readonly/tgdata.db --output /priva
 `binding_sync.apply_web_plan(plan, destination, backup)` 只接受 `profiles/web/blueset.telegram/tgdata.db`，导入前创建独立 SQLite 备份，再在事务中合并已确认的绑定。原有话题编号保持不变；若同一网页版群已经产生测试话题，则切回原话题编号，不删除消息历史。目标话题若已指向其他群，整批回滚。重复导入不新增重复记录。
 
 群名只能用于候选匹配。迁移时需核对成员信息或由用户确认；网页版尚未返回的群保留在 `pending` 中，不能伪造网页版 ID，也不能声称已全部同步。
+
+### 本地 Telegram Bot API 附件权限
+
+启用 `local_bot_api` 时，附件目录应按同一路径只读挂载到 `/var/lib/telegram-bot-api`。网页版的 `EFB_WEB_UID`、`EFB_WEB_GID` 应匹配该目录实际所有者，独立网页版数据目录也应由这一身份持有；不要放宽原附件目录权限或改变原 EFB 的所有权。登录入口会检查附件目录的读取和遍历权限，避免文本可用而所有附件失败。
+
+附件验证应使用运行容器内的 Telegram `File.download_to_memory()` 分别读取图片和文档，再由用户验证实际微信接收。不要自动重发先前失败或结果不确定的业务消息。

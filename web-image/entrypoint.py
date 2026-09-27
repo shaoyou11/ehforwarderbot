@@ -22,6 +22,12 @@ def main():
         raise SystemExit("配置必须仅启用网页版通道")
     if not (root / "ALLOW_WEB_LOGIN").is_file():
         raise SystemExit("缺少独立数据目录的登录启用标记")
+    telegram_config = root / "profiles" / profile / "blueset.telegram" / "config.yaml"
+    telegram = yaml.safe_load(telegram_config.read_text()) or {}
+    if telegram.get("flags", {}).get("local_bot_api"):
+        media = Path("/var/lib/telegram-bot-api")
+        if not media.is_dir() or not os.access(media, os.R_OK | os.X_OK):
+            raise SystemExit("无法读取 Telegram 附件目录，请匹配运行 UID/GID，并保持附件挂载只读")
     lock = open(root / ".web-instance.lock", "a+")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

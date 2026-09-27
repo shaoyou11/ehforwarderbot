@@ -12,6 +12,7 @@ services:
     environment:
       EFB_WEB_ENABLE_LOGIN: "0"
   web-standby:
+    user: "${EFB_WEB_UID:-10001}:${EFB_WEB_GID:-10001}"
     image: efb-web-standby:20260927
     profiles: ["standby"]
     restart: "no"

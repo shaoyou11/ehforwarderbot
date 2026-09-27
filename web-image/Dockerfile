@@ -44,7 +44,8 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock git+https://g
 RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock lottie==0.7.2 cairosvg==2.9.1
 COPY web-image/patch.py /tmp/patch-web.py
 COPY web-image/compile_zh.py /tmp/compile-zh.py
-RUN python /tmp/patch-web.py && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
+COPY web-image/patch_media.py /tmp/patch-media.py
+RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts

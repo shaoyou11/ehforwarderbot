@@ -64,6 +64,20 @@ class WebImageTests(unittest.TestCase):
                 self.assertNotEqual(translator.gettext(message), message)
         self.assertEqual(efb_wechat_slave.WeChatChannel.channel_name, "微信网页版")
 
+    def test_failed_media_cleanup_does_not_retry_download(self):
+        from efb_telegram_master.message import ETMMsg
+        message = ETMMsg(file_id="test-file")
+        with patch.object(message, "_load_file", side_effect=PermissionError("denied")) as download:
+            with self.assertRaises(PermissionError):
+                message.get_file()
+            message.close_loaded_file()
+            download.assert_called_once()
+        import io
+        stream=io.BytesIO(b"file")
+        message.set_file(stream)
+        message.close_loaded_file()
+        self.assertTrue(stream.closed)
+
     def test_native_channel_absent(self):
         self.assertIsNone(importlib.util.find_spec("efb_wechat_comwechat_slave"))
 
