@@ -112,5 +112,16 @@ class WebImageTests(unittest.TestCase):
             WeChatChannel._bot_send_file(None, chat, "file.txt", None)
         chat.send_file.assert_called_once()
 
+    def test_failed_group_id_update_preserves_existing_mapping(self):
+        from efb_wechat_slave.vendor.wxpy.utils.puid_map import PuidMap
+        with tempfile.TemporaryDirectory() as directory:
+            p = Path(directory) / "wxpy_puid.pkl"
+            original = pickle.dumps(({}, {}, {}, {}))
+            p.write_bytes(original)
+            core = SimpleNamespace(path=str(p), user_names={}, wxids={}, remark_names={}, captions={}, _dump_task=None, log=lambda *args: None)
+            with patch("os.replace", side_effect=OSError("interrupted")):
+                with self.assertRaises(OSError): PuidMap.dump(core)
+            self.assertEqual(p.read_bytes(), original)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

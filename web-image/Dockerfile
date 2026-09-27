@@ -26,7 +26,7 @@ RUN set -ex; \
 RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.8.0 setuptools==83.0.0; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock --no-deps --force-reinstall rich Pillow; \
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock rich Pillow; \
     # Install TgCrypto, ignoring any pre-installed PyYAML
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock --ignore-installed PyYAML TgCrypto;
 
