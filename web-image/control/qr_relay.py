@@ -43,7 +43,7 @@ def cleanup(root=None,now=None):
         if not state.get('verified_since'):
             state['verified_since']=now;atomic_json(root/'web-login.json',state);return 0
         if now-state['verified_since']<5:return 0
-        pending=state['messages'][:5]
+        pending=state['messages'][:1]
     c=config();url=c['flags']['api_base_url']+c['token'];deleted=[]
     for message in pending:
         try:

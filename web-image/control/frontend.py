@@ -69,7 +69,7 @@ class Frontend:
         except sqlite3.Error:pass
         try:space=f'{shutil.disk_usage("/data").free/(2**30):.1f} GiB'
         except OSError:space='未知'
-        try:api='可访问' if self.bot.get_me(timeout=5) else '待确认'
+        try:api='可访问' if self.bot.get_me(read_timeout=5,connect_timeout=5) else '待确认'
         except Exception:api='检查失败（不等于微信掉线）'
         spoiler=getattr(getattr(self.channel,'author_name_spoiler_store',None),'enabled',None)
         sync_time=time.strftime('%m-%d %H:%M:%S',time.localtime(sync['updated'])) if sync.get('updated') else '未记录'
