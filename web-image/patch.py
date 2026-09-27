@@ -77,3 +77,23 @@ needle = "    def get_chat_picture("
 assert s.count(needle) == 1
 s = s.replace(needle, "    def get_chat_member_picture(self, chat_member):\n        raise EFBOperationNotSupported()\n\n" + needle)
 p.write_text(s)
+
+# PTB messages are immutable. Topic service replies are not message quotes.
+p = root.parent / "efb_telegram_master/master_message.py"
+s = p.read_text()
+old = '''                            quote = message.reply_to_message.message_id != message.reply_to_message.message_thread_id
+                            if not quote:
+                                message.reply_to_message = None'''
+new = '''                            reply = message.reply_to_message
+                            quote = bool(reply and reply.message_id != reply.message_thread_id)'''
+assert s.count(old) == 1
+p.write_text(s.replace(old, new))
+# This image has no native ComWechat bridge queue to monitor.
+p = root.parent / "efb_telegram_master/__init__.py"
+s = p.read_text()
+old = '''self.bridge_dead_letter_guard = BridgeDeadLetterGuard(
+            self,
+            settings=self.bridge_queue_settings,
+        )'''
+assert s.count(old) == 1
+p.write_text(s.replace(old, old.replace('settings=self.bridge_queue_settings,', 'settings=self.bridge_queue_settings,\n            autostart=False,')))

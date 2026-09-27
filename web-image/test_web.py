@@ -27,6 +27,29 @@ class WebImageTests(unittest.TestCase):
         with self.assertRaises(EFBOperationNotSupported):
             channel.get_chat_member_picture(None)
 
+    def test_topic_replies_preserve_immutable_telegram_message(self):
+        import logging
+        from datetime import datetime, timezone
+        from unittest.mock import Mock
+        from telegram import Message, Chat, Update
+        from efb_telegram_master.master_message import MasterMessageProcessor
+        processor = object.__new__(MasterMessageProcessor)
+        processor.logger = logging.getLogger("topic-test")
+        processor.channel_id = "blueset.telegram"
+        processor.db = Mock()
+        processor.db.get_chat_assoc.return_value = []
+        processor.db.get_topic_slaves.return_value = [("blueset.wechat example", 10)]
+        processor.process_telegram_message = Mock(return_value="routed")
+        chat = Chat(-123, "supergroup", is_forum=True)
+        now = datetime.now(timezone.utc)
+        for reply_id, expected_quote in [(None, False), (10, False), (11, True)]:
+            reply = None if reply_id is None else Message(reply_id, now, chat, message_thread_id=10)
+            message = Message(12, now, chat, text="test", message_thread_id=10, reply_to_message=reply)
+            update = Update(1, message=message)
+            self.assertEqual(processor.msg(update, None), "routed")
+            self.assertIs(message.reply_to_message, reply)
+            self.assertEqual(processor.process_telegram_message.call_args.kwargs["quote"], expected_quote)
+
     def test_native_channel_absent(self):
         self.assertIsNone(importlib.util.find_spec("efb_wechat_comwechat_slave"))
 
