@@ -33,6 +33,12 @@ docker compose -f web-image/compose.yaml --profile offline run --rm web-check
 
 该配置没有挂载账号数据，`EFB_WEB_ENABLE_LOGIN=0`，不会启动登录。
 
+## 个性化配置准备
+
+`prepare_profile.py` 只读取来源，输出到全新的独立目录，拒绝覆盖。可复制关键词规则、话题群、图片发送方式、名称显示和夜间静默；生产 Bot Token 不复制。含原通道群标识的规则保存到 `pending-mappings.yaml`，在身份映射完成前不启用。绑定数据库与登录缓存不复制。
+
+独立配置准备完成不代表绑定同步已经实现。
+
 ## 后续真实登录测试
 
 真实登录尚未验证。后续需要独立的 `/data/profiles/web`，仅启用 `blueset.wechat`，并同时满足 `EFB_WEB_ENABLE_LOGIN=1` 和独立数据目录下的 `ALLOW_WEB_LOGIN` 标记。

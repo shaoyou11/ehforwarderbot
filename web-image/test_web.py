@@ -70,7 +70,8 @@ class WebImageTests(unittest.TestCase):
         from unittest.mock import Mock
         from efb_wechat_slave import chats
         from ehforwarderbot.chat import GroupChat
-        channel = Mock()
+        from ehforwarderbot.channel import SlaveChannel
+        channel = Mock(spec=SlaveChannel)
         channel.channel_id = "blueset.wechat"
         channel.channel_name = "Web WeChat"
         channel.channel_emoji = "W"
@@ -130,7 +131,7 @@ class WebImageTests(unittest.TestCase):
         attachment = Mock()
         converted = SimpleNamespace(uid="", chat=True, author=True, file=attachment)
         wrapped = slave_message.SlaveMessageManager.Decorators.wechat_msg_meta(lambda *args: converted)
-        with patch.object(slave_message.coordinator, "master", object()), patch.object(slave_message.coordinator, "send_message", side_effect=ConnectionError("Remote end closed connection")) as send:
+        with patch.object(slave_message.coordinator, "master", object(), create=True), patch.object(slave_message.coordinator, "send_message", side_effect=ConnectionError("Remote end closed connection")) as send:
             with self.assertRaises(ConnectionError):
                 wrapped(manager, SimpleNamespace(id="group-message", raw={}))
             send.assert_called_once_with(converted)
