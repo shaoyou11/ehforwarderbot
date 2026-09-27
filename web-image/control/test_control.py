@@ -131,4 +131,26 @@ class SwitchTests(unittest.TestCase):
             start=next(i for i,a in enumerate(calls) if a[:2]==['docker','start'] and a[-1]=='native-container')
             self.assertLess(stop,start)
 
+class IndependentNetworkTests(unittest.TestCase):
+    def worker(self,tmp):
+        root=Path(tmp);(root/'secret').write_bytes(b'secret')
+        return Worker({'control_root':tmp,'network_independent':True,'native_container':'engine','watchdog':'watchdog','native_aux_unit':'video.service','native_aux_container':'video','bot_api_container':'shared-api'})
+    def test_web_stops_native_dependencies_but_keeps_bot_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            w=self.worker(tmp)
+            with patch.object(w,'run') as run:w.settle('web')
+            names=[c.args[0][-1] for c in run.call_args_list]
+            self.assertEqual(names,['watchdog','video.service','video','engine'])
+            self.assertNotIn('shared-api',names)
+    def test_native_engine_health_required_before_frontend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            w=self.worker(tmp)
+            with patch.object(w,'run',side_effect=['','healthy']) as run:w.prepare('comwechat')
+            self.assertEqual(run.call_args_list[0].args[0],['docker','start','engine'])
+    def test_dead_engine_aborts_preparation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            w=self.worker(tmp)
+            with patch.object(w,'run',side_effect=['','exited']):
+                with self.assertRaises(RuntimeError):w.prepare('comwechat')
+
 if __name__=='__main__':unittest.main(verbosity=2)

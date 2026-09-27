@@ -29,7 +29,11 @@ jobs:
           file: web-image/Dockerfile
           load: true
           push: false
-          tags: ghcr.io/shaoyou11/efb-web-standby:20260927
+          tags: |
+            ghcr.io/shaoyou11/efb-web-standby:20260927
+            ghcr.io/shaoyou11/efb-web-standby:${{ github.sha }}
+          build-args: |
+            EFB_IMAGE_SOURCE_REF=${{ github.sha }}
           cache-from: type=gha,scope=web-standby
           cache-to: type=gha,mode=max,scope=web-standby
       - name: Offline runtime and activation guards
@@ -41,4 +45,6 @@ jobs:
           docker run --rm --network none --entrypoint python "$image" -m pip check
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-web/test_binding_sync.py
       - name: Publish only dedicated web tag
-        run: docker push ghcr.io/shaoyou11/efb-web-standby:20260927
+        run: |
+          docker push ghcr.io/shaoyou11/efb-web-standby:20260927
+          docker push ghcr.io/shaoyou11/efb-web-standby:${{ github.sha }}

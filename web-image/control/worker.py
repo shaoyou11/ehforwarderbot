@@ -23,9 +23,36 @@ class Worker:
         state=self.run(['docker','inspect','-f','{{.State.Running}}',self.config['containers'][backend]],10).strip()
         if state not in {'true','false'}:raise RuntimeError('container state unavailable')
         return state=='true'
+    def prepare(self,backend):
+        if not self.config.get('network_independent'):return
+        if backend=='comwechat':
+            main=self.config['native_container']
+            self.run(['docker','start',main],20)
+            end=time.monotonic()+180
+            while time.monotonic()<end:
+                status=self.run(['docker','inspect','-f','{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}',main],10).strip()
+                if status=='healthy':break
+                if status in {'exited','dead'}:raise RuntimeError('native engine exited')
+                time.sleep(3)
+            else:raise TimeoutError('native engine readiness timeout')
+    def settle(self,backend):
+        if not self.config.get('network_independent'):return
+        if backend=='web':
+            self.run(['docker','stop','-t','15',self.config['watchdog']],25)
+            if self.config.get('native_aux_unit'):self.run(['systemctl','stop',self.config['native_aux_unit']],30)
+            if self.config.get('native_aux_container'):self.run(['docker','stop','-t','15',self.config['native_aux_container']],25)
+            self.run(['docker','stop','-t','30',self.config['native_container']],40)
+        else:
+            self.run(['docker','start',self.config['watchdog']],20)
+            if self.config.get('native_aux_unit'):self.run(['systemctl','start','--no-block',self.config['native_aux_unit']],10)
     def save(self,**changes):
         self.state.update(changes);self.state['updated']=time.time();atomic_json(self.root/'state.json',self.state)
     def notify(self,text):
+        if self.config.get('network_independent'):
+            from transport import send_notice
+            try:send_notice(self.config,self.state['active'],text)
+            except Exception:pass
+            return
         # Token remains inside the running EFB container's private profile.
         backend=self.state['active'];container=self.config['containers'][backend];profile='web' if backend=='web' else 'comwechat'
         code="""import json,sys,yaml,requests
@@ -68,18 +95,22 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         try:
             self.run(['docker','stop','-t','35',self.config['containers'][previous]],45)
             if self.running(previous):raise RuntimeError('source failed to stop')
+            self.prepare(target)
             if target=='comwechat':self.run(['docker','start',self.config['watchdog']],20)
             else:self.run(['docker','stop','-t','15',self.config['watchdog']],25)
             self.run(['docker','start',self.config['containers'][target]],20)
             health=self.wait_ready(target,since)
             if self.running(previous):raise RuntimeError('multiple active backends')
             self.save(previous=previous,active=target,phase='idle' if health.get('wechat_online') is not False else 'awaiting_login',last_result='切换成功，登录状态请查看 /status')
+            self.settle(target)
             self.notify('EFB 已切换到 '+('微信网页版' if target=='web' else 'ComWechat')+'。请发送 /status 查看登录状态。')
         except Exception:
             self.run(['docker','stop','-t','15',self.config['containers'][target]],25)
+            self.prepare(previous)
             if previous=='web':self.run(['docker','stop','-t','15',self.config['watchdog']],25)
             else:self.run(['docker','start',self.config['watchdog']],20)
             self.run(['docker','start',self.config['containers'][previous]],20)
+            self.settle(previous)
             self.save(active=previous,phase='failed',last_result='目标启动未通过检查，已恢复原方案')
             self.notify('EFB 切换未通过检查，已恢复原方案。请发送 /status 查看。')
             raise
@@ -116,12 +147,18 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         if self.state.get('phase') in {'switching','syncing'}:
             active=self.state.get('active','web');other='comwechat' if active=='web' else 'web'
             if self.running(other):self.run(['docker','stop','-t','15',self.config['containers'][other]],25)
+            self.prepare(active)
             if not self.running(active):self.run(['docker','start',self.config['containers'][active]],20)
             self.save(phase='failed',last_result='恢复上次中断的切换，保留原方案')
         active=self.state.get('active','web');other='comwechat' if active=='web' else 'web'
+        self.prepare(active)
         if self.running(other):self.run(['docker','stop','-t','20',self.config['containers'][other]],30)
         if active=='web':self.run(['docker','stop','-t','15',self.config['watchdog']],25)
         if not self.running(active):self.run(['docker','start',self.config['containers'][active]],20)
+        if self.config.get('network_independent'):
+            self.wait_ready(active,time.time()-20,180)
+            self.settle(active)
+            self.save(network_independent=True)
         last_cleanup=0
         last_sync=time.monotonic()
         while True:
@@ -131,7 +168,9 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
                     self.save(phase='idle',last_result='扫码登录完成，当前方案已就绪')
                 elif not self.running(active):
                     previous=self.state.get('previous','comwechat')
+                    self.prepare(previous)
                     self.run(['docker','start',self.config['containers'][previous]],20)
+                    self.settle(previous)
                     self.save(active=previous,phase='failed',last_result='等待扫码期间目标退出，已恢复上一方案')
                     self.notify('目标在等待扫码期间退出，已恢复上一方案。请发送 /backend 查看。')
             if self.state.get('active')=='web' and time.monotonic()-last_cleanup>30:
