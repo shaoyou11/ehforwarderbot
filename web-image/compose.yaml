@@ -1,0 +1,13 @@
+name: efb-web-lab
+services:
+  web-check:
+    image: efb-web-standby:20260927
+    profiles: ["offline"]
+    network_mode: none
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
+    environment:
+      EFB_WEB_ENABLE_LOGIN: "0"
