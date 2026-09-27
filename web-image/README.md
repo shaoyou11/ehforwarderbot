@@ -68,3 +68,9 @@ python web-image/binding_sync.py --source-db /readonly/tgdata.db --output /priva
 - `binding-candidate.db` 仅为新建候选，绝不自动覆盖现有数据库。正式应用需停止目标实例、检查冲突和目标现有绑定后再合并。
 
 后续增量同步可重复执行导出与规划；当前没有定时同步、双向覆盖或 Telegram 切换按钮。涉及原聊天 ID 的接收策略和合并规则仍需同一对应表适配，不能直接复制启用。
+
+### 已确认群绑定的导入
+
+`binding_sync.apply_web_plan(plan, destination, backup)` 只接受 `profiles/web/blueset.telegram/tgdata.db`，导入前创建独立 SQLite 备份，再在事务中合并已确认的绑定。原有话题编号保持不变；若同一网页版群已经产生测试话题，则切回原话题编号，不删除消息历史。目标话题若已指向其他群，整批回滚。重复导入不新增重复记录。
+
+群名只能用于候选匹配。迁移时需核对成员信息或由用户确认；网页版尚未返回的群保留在 `pending` 中，不能伪造网页版 ID，也不能声称已全部同步。

@@ -78,6 +78,51 @@ def write_private(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def apply_web_plan(plan, destination, backup):
+    """Merge confirmed bindings into web only; preserve history and unrelated rows."""
+    destination = Path(destination).resolve()
+    if destination.parent.name != 'blueset.telegram' or destination.parent.parent.name != 'web':
+        raise ValueError('only an independent web profile may be modified')
+    rows = plan['chat'] + plan['topic']
+    if any(not r['slave_uid'].startswith('blueset.wechat ') for r in rows):
+        raise ValueError('only web identities may be applied')
+    backup = Path(backup)
+    fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.close(fd)
+    con = sqlite3.connect(destination.as_uri() + '?mode=rw', uri=True, timeout=10)
+    try:
+        with sqlite3.connect(backup) as copy:
+            con.backup(copy)
+        con.execute('BEGIN IMMEDIATE')
+        for row in plan['chat']:
+            existing = con.execute('SELECT slave_uid FROM chatassoc WHERE master_uid=?', (row['master_uid'],)).fetchall()
+            if any(uid != row['slave_uid'] for (uid,) in existing):
+                raise ValueError('existing chat destination conflicts with import')
+            if not existing:
+                con.execute('INSERT INTO chatassoc(master_uid,slave_uid) VALUES (?,?)', (row['master_uid'],row['slave_uid']))
+        for row in plan['topic']:
+            key = (str(row['topic_chat_id']), str(row['message_thread_id']))
+            existing = con.execute('SELECT slave_uid FROM topicassoc WHERE topic_chat_id=? AND message_thread_id=?', key).fetchall()
+            if any(uid != row['slave_uid'] for (uid,) in existing):
+                raise ValueError('existing topic destination conflicts with import')
+            if not existing:
+                previous = con.execute('SELECT id FROM topicassoc WHERE topic_chat_id=? AND slave_uid=?', (key[0],row['slave_uid'])).fetchall()
+                if len(previous) > 1:
+                    raise ValueError('multiple active topics for one web identity')
+                if previous:
+                    con.execute('UPDATE topicassoc SET message_thread_id=? WHERE id=?', (key[1],previous[0][0]))
+                else:
+                    con.execute('INSERT INTO topicassoc(topic_chat_id,message_thread_id,slave_uid) VALUES (?,?,?)', (*key,row['slave_uid']))
+        if con.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
+            raise ValueError('web database check failed')
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-db', required=True)

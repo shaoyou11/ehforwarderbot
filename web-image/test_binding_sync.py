@@ -3,7 +3,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
-from binding_sync import export_bindings, make_plan, stage_database
+from binding_sync import export_bindings, make_plan, stage_database, apply_web_plan
 
 class BindingSyncTests(unittest.TestCase):
     def setUp(self):
@@ -39,5 +39,32 @@ class BindingSyncTests(unittest.TestCase):
     def test_repeat_export_is_stable_and_source_is_read_only(self):
         self.assertEqual(export_bindings(self.db)['fingerprint'],self.snapshot['fingerprint'])
         self.assertEqual(self.db.read_bytes(),self.before)
+
+    def web_database(self):
+        dst=self.root/'profiles/web/blueset.telegram/tgdata.db';dst.parent.mkdir(parents=True)
+        stage_database(self.snapshot, {'chat':[], 'topic':[]}, dst)
+        return dst
+
+    def test_merge_restores_original_topic_preserves_history_and_is_idempotent(self):
+        dst=self.web_database()
+        with sqlite3.connect(dst) as c:
+            c.execute("INSERT INTO topicassoc VALUES (1,'tg-forum','999','blueset.wechat two')")
+            c.execute("INSERT INTO msglog VALUES (1,'keep-web-history')")
+        plan={'chat':[], 'topic':[{'topic_chat_id':'tg-forum','message_thread_id':'42','slave_uid':'blueset.wechat two'}]}
+        for i in range(2):apply_web_plan(plan,dst,self.root/f'backup-{i}.db')
+        with sqlite3.connect(dst) as c:
+            self.assertEqual(c.execute('SELECT message_thread_id FROM topicassoc').fetchall(),[('42',)])
+            self.assertEqual(c.execute('SELECT text FROM msglog').fetchone()[0],'keep-web-history')
+        self.assertEqual(self.db.read_bytes(),self.before)
+
+    def test_conflict_rolls_back_entire_import(self):
+        dst=self.web_database()
+        with sqlite3.connect(dst) as c:c.execute("INSERT INTO topicassoc VALUES (1,'tg-forum','42','blueset.wechat unrelated')")
+        plan={'chat':[{'master_uid':'new-chat','slave_uid':'blueset.wechat one'}], 'topic':[{'topic_chat_id':'tg-forum','message_thread_id':'42','slave_uid':'blueset.wechat two'}]}
+        with self.assertRaises(ValueError):apply_web_plan(plan,dst,self.root/'backup.db')
+        with sqlite3.connect(dst) as c:self.assertEqual(c.execute('SELECT count(*) FROM chatassoc').fetchone()[0],0)
+
+    def test_apply_refuses_original_profile(self):
+        with self.assertRaises(ValueError):apply_web_plan({'chat':[],'topic':[]},self.db,self.root/'backup.db')
 
 if __name__=='__main__':unittest.main(verbosity=2)
