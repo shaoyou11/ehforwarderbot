@@ -31,6 +31,7 @@ def prepare(source, target):
     save('config.yaml', {'master_channel': 'blueset.telegram', 'slave_channels': ['blueset.wechat'], 'middlewares': active})
     telegram = load('blueset.telegram/config.yaml')
     flags = {k:v for k,v in telegram.get('flags', {}).items() if k in PORTABLE_FLAGS}
+    flags['auto_locale'] = False  # Use the image's configured Chinese locale in every chat.
     save('blueset.telegram/config.yaml', {'token': '', 'admins': telegram.get('admins', []), 'flags': flags})
     save('blueset.wechat/config.yaml', {'flags': {'on_log_out': 'command', 'qr_reload': 'master_qr_code', 'puid_logs': False}})
     counts = {}
