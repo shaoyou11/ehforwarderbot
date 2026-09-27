@@ -50,3 +50,21 @@ docker compose -f web-image/compose.yaml --profile offline run --rm web-check
 ## 回退
 
 本阶段不替换生产镜像、不修改生产 Compose、不重启生产容器。停止独立测试实例即可结束测试；保留独立数据和镜像用于排查。
+
+## 群和话题绑定同步准备
+
+`binding_sync.py` 以 SQLite 只读事务导出普通绑定、话题绑定和聊天目录，不读取消息正文或复制消息历史。每次输出必须使用新目录。
+
+```sh
+python web-image/binding_sync.py --source-db /readonly/tgdata.db --output /private/new-snapshot
+```
+
+首次无网页版联系人目录时，全部绑定留在待映射清单，候选数据库不投入运行。拿到网页版群及联系人 PUID 后，提供 `--web-catalog` 和 `--mapping`：
+
+- 联系人目录为 `[{"uid": "web-puid"}]`。必须来自实际登录的同一微信账号。
+- 对应表为 `[{"source": "honus.comwechat native-id", "target": "blueset.wechat web-puid", "confirmed": true}]`。
+- 仅确认项转换；目标必须出现在网页版目录，禁止重复或多个原聊天指向同一目标。群名相同不构成身份确认。
+- 转换保留原 Telegram 群 ID 和话题 ID；未映射项留在 `plan.json`。
+- `binding-candidate.db` 仅为新建候选，绝不自动覆盖现有数据库。正式应用需停止目标实例、检查冲突和目标现有绑定后再合并。
+
+后续增量同步可重复执行导出与规划；当前没有定时同步、双向覆盖或 Telegram 切换按钮。涉及原聊天 ID 的接收策略和合并规则仍需同一对应表适配，不能直接复制启用。

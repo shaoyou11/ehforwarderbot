@@ -39,5 +39,6 @@ jobs:
           docker run --rm --network none --read-only --tmpfs /tmp --cap-drop ALL "$image"
           if docker run --rm --network none --read-only --tmpfs /tmp -e EFB_WEB_ENABLE_LOGIN=1 -e EFB_PROFILE=comwechat "$image"; then exit 1; fi
           docker run --rm --network none --entrypoint python "$image" -m pip check
+          docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-web/test_binding_sync.py
       - name: Publish only dedicated web tag
         run: docker push ghcr.io/shaoyou11/efb-web-standby:20260927

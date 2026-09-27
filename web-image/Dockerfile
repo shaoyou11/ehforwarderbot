@@ -102,12 +102,14 @@ RUN python -c "from lottie.exporters.gif import export_gif; from lottie.exporter
 COPY web-image/entrypoint.py /opt/efb-web/entrypoint.py
 COPY web-image/test_web.py /opt/efb-web/test_web.py
 COPY web-image/prepare_profile.py /opt/efb-web/prepare_profile.py
+COPY web-image/binding_sync.py /opt/efb-web/binding_sync.py
+COPY web-image/test_binding_sync.py /opt/efb-web/test_binding_sync.py
 COPY --from=builder /tmp/web-packages.txt /opt/efb-web/packages.txt
 RUN addgroup -g 10001 efbweb && adduser -D -u 10001 -G efbweb efbweb
 RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
 ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-RUN python /opt/efb-web/test_web.py
+RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
