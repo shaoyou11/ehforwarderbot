@@ -103,3 +103,16 @@ p = root / "__init__.py"
 s = p.read_text()
 assert 'channel_name = "WeChat Slave"' in s
 p.write_text(s.replace('channel_name = "WeChat Slave"', 'channel_name = "微信网页版"'))
+
+# Optional host controller; disabled unless the deployment supplies its state path.
+p = root.parent / 'efb_telegram_master/__init__.py'
+s = p.read_text()
+needle = '        self.rpc_utilities = RPCUtilities(self)'
+assert s.count(needle) == 1
+s = s.replace(needle, needle + '''
+        if __import__('os').environ.get('EFB_BACKEND_CONTROL'):
+            __import__('sys').path.insert(0, '/opt/efb-backend-control')
+            from frontend import install
+            install(self)
+''')
+p.write_text(s)

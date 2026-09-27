@@ -45,7 +45,8 @@ RUN pip3 install --no-cache-dir --constraint /tmp/constraints.lock lottie==0.7.2
 COPY web-image/patch.py /tmp/patch-web.py
 COPY web-image/compile_zh.py /tmp/compile-zh.py
 COPY web-image/patch_media.py /tmp/patch-media.py
-RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
+COPY web-image/patch_upload.py /tmp/patch-upload.py
+RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
@@ -101,6 +102,7 @@ COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
 RUN python -c "from lottie.exporters.gif import export_gif; from lottie.exporters.cairo import PngRenderer"
 
 # Copy entrypoint script and make it executable
+COPY web-image/control/ /opt/efb-backend-control/
 COPY web-image/entrypoint.py /opt/efb-web/entrypoint.py
 COPY web-image/test_web.py /opt/efb-web/test_web.py
 COPY web-image/prepare_profile.py /opt/efb-web/prepare_profile.py
@@ -112,6 +114,6 @@ RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
 ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE=zh_CN
-RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py
+RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
