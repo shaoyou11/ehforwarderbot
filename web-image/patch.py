@@ -116,3 +116,19 @@ s = s.replace(needle, needle + '''
             install(self)
 ''')
 p.write_text(s)
+
+# Startup authentication happens before normal bot command processing.
+p = root / '__init__.py'
+s = p.read_text()
+needle = '        self.qr_uuid = (uuid, status)'
+assert s.count(needle) == 2
+s = s.replace(needle, needle + """
+        if __import__('os').environ.get('EFB_BACKEND_CONTROL'):
+            try:
+                __import__('sys').path.insert(0, '/opt/efb-backend-control')
+                from qr_relay import relay
+                relay(uuid, status)
+            except Exception:
+                self.logger.warning('网页版登录二维码推送失败，请检查本地 Bot API')
+""", 1)
+p.write_text(s)

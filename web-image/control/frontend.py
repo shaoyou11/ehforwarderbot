@@ -41,7 +41,7 @@ class Frontend:
 
     def text(self):
         state=read_json(self.root/'state.json');health=read_json(self.root/f'{self.backend}-health.json')
-        online=health.get('wechat_online');login='已登录' if online is True else '未登录' if online is False else '待确认'
+        online=health.get('wechat_online') if time.time()-health.get('updated',0)<20 else None;login='已登录' if online is True else '未登录' if online is False else '待确认'
         sync=state.get('sync',{})
         return ('EFB 方案与状态\n\n当前方案：'+NAMES[self.backend]+f'\n微信状态：{login}\n控制状态：'+{'idle':'就绪','switching':'切换中','failed':'操作失败','syncing':'同步中','awaiting_login':'等待登录'}.get(state.get('phase'),'准备中')+f"\n已映射绑定：{sync.get('mapped',311)}\n待核对绑定：{sync.get('pending',152)}"+'\n\n两套转发互斥运行；登录凭据和待发送队列不参与同步。'+ ('\n文件：网页版当前上限 25 MB，大文件支持仍待验证。' if self.backend=='web' else '')+ ('\n最近结果：'+state['last_result'] if state.get('last_result') else ''))
 

@@ -65,6 +65,23 @@ class SyncTests(unittest.TestCase):
         with self.db('comwechat') as c:self.assertEqual(c.execute('SELECT slave_uid FROM topicassoc').fetchone()[0],'honus.comwechat unknown')
 
 class SwitchTests(unittest.TestCase):
+    def test_stale_request_preserves_waiting_login(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'secret').write_bytes(b'secret');(root/'processed').mkdir()
+            atomic_json(root/'state.json',{'active':'web','phase':'awaiting_login'})
+            w=Worker({'control_root':tmp,'admins':[12]})
+            data=button(b'secret','web',12);r=verify(b'secret',data,12,[12]);r['requested_backend']='comwechat'
+            p=root/(r['nonce']+'.json');atomic_json(p,r)
+            with patch.object(w,'notify'):w.process(p)
+            self.assertEqual(w.state['phase'],'awaiting_login')
+    def test_delivered_qr_allows_target_to_wait_for_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'secret').write_bytes(b'secret')
+            w=Worker({'control_root':tmp})
+            now=time.time();atomic_json(root/'web-login.json',{'updated':now,'qr_delivered':True})
+            with patch.object(w,'running',return_value=True):h=w.wait_ready('web',now-1)
+            self.assertFalse(h['wechat_online'])
+
     def test_switch_stops_source_before_target_and_rolls_back(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'secret').write_bytes(b'secret');atomic_json(root/'state.json',{'active':'web','phase':'idle'});atomic_json(root/'web-health.json',{'updated':time.time(),'queue_size':0,'inflight':0})

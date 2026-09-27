@@ -9,6 +9,8 @@ from pathlib import Path
 from protocol import atomic_json,read_json,verify
 from sync import synchronize
 
+NAMES={'web':'微信网页版','comwechat':'ComWechat'}
+
 class Worker:
     def __init__(self,config):
         self.config=config;self.root=Path(config['control_root']);self.secret=(self.root/'secret').read_bytes()
@@ -37,6 +39,9 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         while time.monotonic()<end:
             h=read_json(self.root/f'{backend}-health.json')
             if self.running(backend) and h.get('updated',0)>since and h.get('ready'):return h
+            login=read_json(self.root/'web-login.json') if backend=='web' else {}
+            if self.running(backend) and login.get('updated',0)>since and login.get('qr_delivered'):
+                return {'ready':False,'wechat_online':False}
             if not self.running(backend):raise RuntimeError('target exited')
             time.sleep(2)
         raise TimeoutError('target readiness timeout')
@@ -50,8 +55,12 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         if self.running(target):raise RuntimeError('target already running')
         self.save(phase='switching',last_result='正在检查并同步')
         self.synchronize()
-        h=read_json(self.root/f'{previous}-health.json')
-        if time.time()-h.get('updated',0)>20 or h.get('queue_size') not in (0,None) or h.get('inflight',0)!=0:raise RuntimeError('source queue not drained')
+        deadline=time.monotonic()+30
+        while True:
+            h=read_json(self.root/f'{previous}-health.json')
+            if time.time()-h.get('updated',0)<=20 and h.get('queue_size') in (0,None) and h.get('inflight',0)==0:break
+            if time.monotonic()>=deadline:raise RuntimeError('source queue not drained')
+            time.sleep(1)
         # Stop fully before starting the other poller.
         self.run(['docker','stop','-t','35',self.config['containers'][previous]],45)
         if self.running(previous):raise RuntimeError('source failed to stop')
@@ -62,7 +71,7 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             self.run(['docker','start',self.config['containers'][target]],20)
             health=self.wait_ready(target,since)
             if self.running(previous):raise RuntimeError('multiple active backends')
-            self.save(active=target,phase='idle' if health.get('wechat_online') is not False else 'awaiting_login',last_result='切换成功，登录状态请查看 /status')
+            self.save(previous=previous,active=target,phase='idle' if health.get('wechat_online') is not False else 'awaiting_login',last_result='切换成功，登录状态请查看 /status')
             self.notify('EFB 已切换到 '+('微信网页版' if target=='web' else 'ComWechat')+'。请发送 /status 查看登录状态。')
         except Exception:
             self.run(['docker','stop','-t','15',self.config['containers'][target]],25)
@@ -77,15 +86,25 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             path.replace(self.root/'processed'/(path.stem+'.duplicate.'+str(time.time_ns())+'.json'))
             return
         request=read_json(path)
+        request_validated=False
         try:
             checked=verify(self.secret,request['data'],request['actor'],self.config['admins'])
             if checked['nonce']!=path.stem:raise ValueError('nonce mismatch')
             if request.get('requested_backend')!=self.state['active']:raise ValueError('stale backend request')
+            request_validated=True
             if checked['action']=='sync':
                 self.save(phase='syncing');result=self.synchronize();self.save(phase='idle',last_result='已同步确认映射，未识别项继续保留');self.notify('EFB 配置同步完成。已映射 '+str(result['mapped'])+' 条，待核对 '+str(result['pending'])+' 条。')
             else:self.switch(checked['action'])
+        except ValueError:
+            if request_validated:
+                self.save(phase='failed',last_result='同步校验发现冲突，保留原绑定并停止切换')
+                self.notify('同步校验发现冲突，保留原绑定并停止切换。请发送 /backend 查看。')
+                return
+            self.notify('切换请求已过期或状态已变化，原操作保持不变；请发送 /backend 查看最新状态。')
         except Exception as error:
-            self.save(phase='failed',last_result='操作未完成：'+type(error).__name__+'；未重发业务消息')
+            reason={'source queue not drained':'仍有消息处理中，未切换','backend exclusivity check failed':'转发进程状态不一致，未切换','target exited':'目标进程启动后退出','command failed':'容器控制命令未成功'}.get(str(error),type(error).__name__)
+            self.save(phase='failed',last_result='操作未完成：'+reason+'；未重发业务消息')
+            self.notify('EFB 操作未完成：'+reason+'。当前保留 '+NAMES.get(self.state['active'],self.state['active'])+'，请使用 /backend 查看。')
         finally:
             path.replace(self.root/'processed'/path.name)
     def loop(self):
@@ -102,6 +121,15 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         if not self.running(active):self.run(['docker','start',self.config['containers'][active]],20)
         last_sync=time.monotonic()
         while True:
+            if self.state.get('phase')=='awaiting_login':
+                active=self.state['active'];h=read_json(self.root/f'{active}-health.json')
+                if time.time()-h.get('updated',0)<20 and h.get('ready') and h.get('wechat_online') is True:
+                    self.save(phase='idle',last_result='扫码登录完成，当前方案已就绪')
+                elif not self.running(active):
+                    previous=self.state.get('previous','comwechat')
+                    self.run(['docker','start',self.config['containers'][previous]],20)
+                    self.save(active=previous,phase='failed',last_result='等待扫码期间目标退出，已恢复上一方案')
+                    self.notify('目标在等待扫码期间退出，已恢复上一方案。请发送 /backend 查看。')
             for path in sorted((self.root/'requests').glob('*.json')):self.process(path)
             if time.monotonic()-last_sync>120 and self.state.get('phase')=='idle':
                 try:self.synchronize()
