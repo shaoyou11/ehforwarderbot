@@ -1,5 +1,8 @@
 name: Isolated Web WeChat image
 on:
+  push:
+    branches: ["feat/web-standby-20260927"]
+    paths: ["web-image/**", ".github/workflows/web-standby.yml"]
   workflow_dispatch:
 permissions:
   contents: read
