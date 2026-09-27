@@ -136,5 +136,27 @@ class WebImageTests(unittest.TestCase):
             send.assert_called_once_with(converted)
             attachment.close.assert_called_once()
 
+    def test_personalization_excludes_credentials_and_native_bindings(self):
+        import yaml
+        from prepare_profile import prepare
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / "source"; target = root / "web"
+            (source / "blueset.telegram").mkdir(parents=True)
+            (source / "config.yaml").write_text("middlewares: [jiz4oh.keyword_replace]\n")
+            (source / "blueset.telegram/config.yaml").write_text(yaml.safe_dump({"token":"production-secret", "admins":[1], "flags":{"topic_group":True,"api_base_url":"private-endpoint"}}))
+            (source / "QQ_War.message_merge").mkdir()
+            (source / "QQ_War.message_merge/config.yaml").write_text(yaml.safe_dump({"comwechatretrive":True,"samemessagegroup":["native-group"]}))
+            before = (source / "blueset.telegram/config.yaml").read_bytes()
+            result = prepare(source, target)
+            config = yaml.safe_load((target / "blueset.telegram/config.yaml").read_text())
+            self.assertEqual(config['token'], '')
+            self.assertTrue(config['flags']['topic_group'])
+            self.assertNotIn('api_base_url', config['flags'])
+            self.assertEqual(before, (source / "blueset.telegram/config.yaml").read_bytes())
+            self.assertEqual(yaml.safe_load((target / "QQ_War.message_merge/config.yaml").read_text())['samemessagegroup'], [])
+            self.assertFalse(result['login_enabled'])
+            with self.assertRaises(ValueError): prepare(source, target)
+            with self.assertRaises(ValueError): prepare(source, source)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

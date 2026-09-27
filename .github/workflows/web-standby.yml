@@ -4,6 +4,9 @@ on:
     branches: ["feat/web-standby-20260927"]
     paths: ["web-image/**", ".github/workflows/web-standby.yml"]
   workflow_dispatch:
+concurrency:
+  group: web-standby-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
   packages: write

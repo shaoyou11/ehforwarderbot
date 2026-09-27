@@ -65,3 +65,7 @@ s = s[:start] + '''                # Telegram's request layer owns safe connecti
                         efb_msg.file.close()
 ''' + s[end:]
 p.write_text(s)
+for name in ("__init__.py", "wizard.py"):
+    p = root / name
+    s = p.read_text().replace("from pkg_resources import resource_filename", "from importlib.resources import files\n\ndef resource_filename(package, resource):\n    return str(files(package).joinpath(resource))\n")
+    p.write_text(s)

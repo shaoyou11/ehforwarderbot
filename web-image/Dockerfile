@@ -101,6 +101,7 @@ RUN python -c "from lottie.exporters.gif import export_gif; from lottie.exporter
 # Copy entrypoint script and make it executable
 COPY web-image/entrypoint.py /opt/efb-web/entrypoint.py
 COPY web-image/test_web.py /opt/efb-web/test_web.py
+COPY web-image/prepare_profile.py /opt/efb-web/prepare_profile.py
 COPY --from=builder /tmp/web-packages.txt /opt/efb-web/packages.txt
 RUN addgroup -g 10001 efbweb && adduser -D -u 10001 -G efbweb efbweb
 RUN mkdir -p /data && chown 10001:10001 /data
