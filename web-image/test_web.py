@@ -123,5 +123,18 @@ class WebImageTests(unittest.TestCase):
                 with self.assertRaises(OSError): PuidMap.dump(core)
             self.assertEqual(p.read_bytes(), original)
 
+    def test_received_group_message_is_not_replayed_after_connection_loss(self):
+        from unittest.mock import Mock
+        from efb_wechat_slave import slave_message
+        manager = SimpleNamespace(channel=SimpleNamespace(_stop_polling_event=SimpleNamespace(is_set=lambda:False)))
+        attachment = Mock()
+        converted = SimpleNamespace(uid="", chat=True, author=True, file=attachment)
+        wrapped = slave_message.SlaveMessageManager.Decorators.wechat_msg_meta(lambda *args: converted)
+        with patch.object(slave_message.coordinator, "master", object()), patch.object(slave_message.coordinator, "send_message", side_effect=ConnectionError("Remote end closed connection")) as send:
+            with self.assertRaises(ConnectionError):
+                wrapped(manager, SimpleNamespace(id="group-message", raw={}))
+            send.assert_called_once_with(converted)
+            attachment.close.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

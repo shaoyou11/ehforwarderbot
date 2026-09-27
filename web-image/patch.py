@@ -52,3 +52,16 @@ p = root / "vendor/wxpy/utils/puid_map.py"
 s = p.read_text()
 s = s.replace("os.rename(self.path, bak_path)", "__import__('shutil').copy2(self.path, bak_path)")
 p.write_text(s)
+p = root / "slave_message.py"
+s = p.read_text()
+start = s.index("                # Retry mechanism for connection errors")
+end = s.index("\n            def thread_wrapper", start)
+s = s[:start] + '''                # Telegram's request layer owns safe connection retries.
+                # An uncertain delivery must never replay the whole message here.
+                try:
+                    coordinator.send_message(efb_msg)
+                finally:
+                    if efb_msg.file:
+                        efb_msg.file.close()
+''' + s[end:]
+p.write_text(s)
