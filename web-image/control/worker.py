@@ -119,6 +119,7 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
         if self.running(other):self.run(['docker','stop','-t','20',self.config['containers'][other]],30)
         if active=='web':self.run(['docker','stop','-t','15',self.config['watchdog']],25)
         if not self.running(active):self.run(['docker','start',self.config['containers'][active]],20)
+        last_cleanup=0
         last_sync=time.monotonic()
         while True:
             if self.state.get('phase')=='awaiting_login':
@@ -130,6 +131,11 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
                     self.run(['docker','start',self.config['containers'][previous]],20)
                     self.save(active=previous,phase='failed',last_result='等待扫码期间目标退出，已恢复上一方案')
                     self.notify('目标在等待扫码期间退出，已恢复上一方案。请发送 /backend 查看。')
+            if self.state.get('active')=='web' and time.monotonic()-last_cleanup>30:
+                if read_json(self.root/'web-login.json').get('messages') and self.running('web'):
+                    try:self.run(['docker','exec',self.config['containers']['web'],'python','/opt/efb-backend-control/qr_relay.py'],60)
+                    except Exception:pass
+                last_cleanup=time.monotonic()
             for path in sorted((self.root/'requests').glob('*.json')):self.process(path)
             if time.monotonic()-last_sync>120 and self.state.get('phase')=='idle':
                 try:self.synchronize()

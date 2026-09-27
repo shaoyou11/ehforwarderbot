@@ -1,5 +1,8 @@
 """Backend-specific Telegram menus and a shared control panel."""
 import os
+import sqlite3
+import shutil
+import importlib.metadata
 import threading
 import time
 from pathlib import Path
@@ -29,10 +32,12 @@ class Frontend:
         dispatcher=channel.bot_manager.dispatcher
         dispatcher.add_handler(CommandHandler(['backend','status','sync','web_status','web_login','cw_status','help',*sorted(NATIVE_ONLY)],self.command),group=-2)
         dispatcher.add_handler(CallbackQueryHandler(self.callback,pattern=r'^efbctl:'),group=-2)
+        dispatcher.add_handler(CallbackQueryHandler(self.view_callback,pattern=r'^efbview:'),group=-2)
         if self.backend=='web':
             dispatcher.add_handler(CallbackQueryHandler(self.disabled_callback,pattern=r'^(ops:|watchdog:|wechat:|bridge:|bridgeq:)'),group=-2)
+        self.original_menus=channel.watchdog_control.update_command_menu
         channel.watchdog_control.update_command_menu=self.menus
-        channel.watchdog_control.refresh_group_menu=lambda *a,**k:self.menus()
+        if self.backend=='web':channel.watchdog_control.refresh_group_menu=lambda *a,**k:self.menus()
         self.menus()
         threading.Thread(target=self.heartbeat,daemon=True,name='efb-backend-status').start()
 
@@ -45,6 +50,43 @@ class Frontend:
         sync=state.get('sync',{})
         return ('EFB 方案与状态\n\n当前方案：'+NAMES[self.backend]+f'\n微信状态：{login}\n控制状态：'+{'idle':'就绪','switching':'切换中','failed':'操作失败','syncing':'同步中','awaiting_login':'等待登录'}.get(state.get('phase'),'准备中')+f"\n已映射绑定：{sync.get('mapped',311)}\n待核对绑定：{sync.get('pending',152)}"+'\n\n两套转发互斥运行；登录凭据和待发送队列不参与同步。'+ ('\n文件：网页版当前上限 25 MB，大文件支持仍待验证。' if self.backend=='web' else '')+ ('\n最近结果：'+state['last_result'] if state.get('last_result') else ''))
 
+    def overview(self):
+        state=read_json(self.root/'state.json');sync=state.get('sync',{})
+        prefix='当前方案：'+NAMES[self.backend]+'\n绑定同步：'+str(sync.get('mapped','未知'))+' 条已映射，'+str(sync.get('pending','未知'))+' 条待核对\n'
+        if self.backend=='comwechat':
+            return prefix+'详情 /cw_status；切换 /backend\n\n'+self.channel.operations_ui.health_text()
+        health=read_json(self.root/'web-health.json');fresh=time.time()-health.get('updated',0)<20
+        online='已登录' if fresh and health.get('wechat_online') else '未登录' if fresh else '状态过期，待确认'
+        flags=[]
+        for label,package in [('EFB','ehforwarderbot'),('Telegram','efb-telegram-master'),('微信网页版','efb-wechat-slave')]:
+            try:flags.append(label+' '+importlib.metadata.version(package))
+            except importlib.metadata.PackageNotFoundError:flags.append(label+' 版本未知')
+        db=Path('/data/profiles/web/blueset.telegram/tgdata.db');counts='暂不可读'
+        try:
+            with sqlite3.connect(db.as_uri()+'?mode=ro',uri=True,timeout=2) as conn:
+                normal=conn.execute('SELECT count(*) FROM chatassoc').fetchone()[0];topics=conn.execute('SELECT count(*) FROM topicassoc').fetchone()[0]
+                counts=f'会话绑定 {normal} 条；话题绑定 {topics} 条'
+        except sqlite3.Error:pass
+        try:space=f'{shutil.disk_usage("/data").free/(2**30):.1f} GiB'
+        except OSError:space='未知'
+        try:api='可访问' if self.bot.get_me(timeout=5) else '待确认'
+        except Exception:api='检查失败（不等于微信掉线）'
+        spoiler=getattr(getattr(self.channel,'author_name_spoiler_store',None),'enabled',None)
+        sync_time=time.strftime('%m-%d %H:%M:%S',time.localtime(sync['updated'])) if sync.get('updated') else '未记录'
+        return ('EFB 综合状态\n\n'+prefix+
+                '\n【微信网页版】\n微信连接：'+online+'\n状态心跳：'+('正常' if fresh else '过期')+
+                '\n处理中消息：'+str(health.get('inflight','未知'))+'\nTelegram Bot API：'+api+
+                '\n普通文件/视频：当前保护上限 25 MiB\n视频号：当前仅卡片和链接，自动视频下载未接入'+
+                '\n\n【绑定与个性化】\n'+counts+'\n最近同步：'+sync_time+
+                '\n群成员姓名隐藏：'+('开启' if spoiler is True else '关闭' if spoiler is False else '未知')+
+                '\n接收策略 /filter；姓名隐藏 /namespoiler；图片复用 /imageperception'+
+                '\n\n【运行环境】\n'+ '\n'.join(flags)+'\n数据盘剩余：'+space+
+                '\n网络：当前与 ComWechat、本地 Bot API 共用网络；ComWechat 容器仍运行'+
+                '\n\n【功能区分】\n通用：/link /chat /info /cleanup /version /sync'+
+                '\n网页版：/web_status /web_login'+
+                '\nComWechat 专用：/wechat /login /bridge /watchdog /trace /issues'+
+                '\n当前网页模式不执行原生自动恢复和 Bridge 操作。\n切换方案 /backend')
+
     def panel(self,update):
         actor=update.effective_user.id;other='comwechat' if self.backend=='web' else 'web'
         keyboard=InlineKeyboardMarkup([[InlineKeyboardButton('切换到 '+NAMES[other],callback_data=button(self.secret,other,actor))],[InlineKeyboardButton('立即同步',callback_data=button(self.secret,'sync',actor))]])
@@ -52,7 +94,7 @@ class Frontend:
 
     def command(self,update,context):
         command=(update.effective_message.text or '').split()[0].split('@')[0].lstrip('/')
-        if command in {'help','status','cw_status'} and self.backend=='comwechat':
+        if command in {'help','cw_status'} and self.backend=='comwechat':
             if command=='cw_status':self.channel.operations_ui.status(update,context);raise ApplicationHandlerStop
             return
         if command=='help' and update.effective_user and update.effective_user.id in self.admins:
@@ -79,8 +121,24 @@ class Frontend:
             h=read_json(self.root/'web-health.json');fresh=time.time()-h.get('updated',0)<20
             update.effective_message.reply_text('网页版微信连接\n登录状态：'+('已登录' if fresh and h.get('wechat_online') else '未登录或状态过期')+'\n状态心跳：'+('正常' if fresh else '过期')+'\n处理中消息：'+str(h.get('inflight','未知'))+'\n说明：登录状态不等于端到端投递成功。')
         elif command=='status':
-            h=read_json(self.root/f'{self.backend}-health.json')
-            update.effective_message.reply_text(self.text().replace('EFB 方案与状态','EFB 综合状态')+'\n处理中消息：'+str(h.get('inflight','未知'))+'\n方案切换请使用 /backend。')
+            update.effective_message.reply_text(self.overview(),reply_markup=self.status_markup())
+        raise ApplicationHandlerStop
+
+    def status_markup(self):
+        rows=[[InlineKeyboardButton('刷新综合状态',callback_data='efbview:status'),InlineKeyboardButton('切换与同步',callback_data='efbview:backend')]]
+        if self.backend=='comwechat':
+            rows.extend(self.channel.operations_ui.markup('status',include_bridge=True).inline_keyboard)
+        else:
+            rows.append([InlineKeyboardButton('网页版功能说明',callback_data='efbview:help')])
+        return InlineKeyboardMarkup(rows)
+
+    def view_callback(self,update,context):
+        q=update.callback_query
+        if not self.authorized(update):q.answer('仅管理员私聊可操作。');raise ApplicationHandlerStop
+        action=q.data.split(':',1)[1];q.answer()
+        if action=='status':q.edit_message_text(self.overview(),reply_markup=self.status_markup())
+        elif action=='backend':self.panel(update)
+        else:q.edit_message_text('通用：绑定 /link、会话 /chat、筛选 /filter、姓名隐藏 /namespoiler、图片复用 /imageperception、存储 /cleanup、版本 /version。\n网页版：/web_status、/web_login。\nComWechat：/cw_status、/wechat、/login、/bridge、/watchdog、/trace、/issues。\n只有当前方案的专属操作可用。',reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('返回综合状态',callback_data='efbview:status')]]))
         raise ApplicationHandlerStop
 
     def callback(self,update,context):
@@ -107,7 +165,9 @@ class Frontend:
         private=COMMON+base+extra+[('version','通用｜组件版本'),('extra','通用｜当前渠道扩展命令')]
         group=list(LINKED_GROUP_COMMANDS)
         try:
+            if self.backend=='comwechat':self.original_menus()
             self.bot.set_my_commands([BotCommand(*r) for r in private],scope=BotCommandScopeAllPrivateChats())
+            if self.backend=='comwechat':return
             self.bot.set_my_commands([BotCommand(*r) for r in group],scope=BotCommandScopeAllGroupChats())
             for chat in read_json(self.root/'managed-chats.json',[]):
                 self.bot.set_my_commands([BotCommand(*r) for r in group],scope=BotCommandScopeChat(chat))

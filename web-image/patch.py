@@ -132,3 +132,14 @@ s = s.replace(needle, needle + """
                 self.logger.warning('网页版登录二维码推送失败，请检查本地 Bot API')
 """, 1)
 p.write_text(s)
+
+# Runtime reauthentication uses the same tracked QR lifecycle.
+p = root / '__init__.py'
+s = p.read_text()
+needle = '    def master_qr_code(self, uuid, status, qrcode=None):'
+assert s.count(needle)==1
+s=s.replace(needle,needle+"""
+        if __import__('os').environ.get('EFB_BACKEND_CONTROL'):
+            return self.console_qr_code(uuid, status, qrcode)
+""")
+p.write_text(s)

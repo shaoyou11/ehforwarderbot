@@ -114,6 +114,6 @@ RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
 ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE=zh_CN
-RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py
+RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]

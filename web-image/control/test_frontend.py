@@ -9,7 +9,7 @@ from protocol import atomic_json
 class Commands(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.f=Frontend.__new__(Frontend);self.f.root=Path(self.tmp.name);self.f.backend='web';self.f.admins=[1];self.f.secret=b'test';self.f.channel=MagicMock()
+        self.f=Frontend.__new__(Frontend);self.f.root=Path(self.tmp.name);self.f.backend='web';self.f.admins=[1];self.f.secret=b'test';self.f.channel=MagicMock();self.f.bot=MagicMock();self.f.channel.operations_ui.health_text.return_value='原生完整巡检内容';self.f.channel.operations_ui.markup.return_value.inline_keyboard=[]
         self.u=MagicMock();self.u.effective_user.id=1;self.u.effective_chat.type='private'
         atomic_json(self.f.root/'state.json',{'phase':'idle','active':'web','sync':{'mapped':311,'pending':152}})
     def run_command(self,cmd):
@@ -17,12 +17,12 @@ class Commands(unittest.TestCase):
         with self.assertRaises(ApplicationHandlerStop):self.f.command(self.u,None)
         return self.u.effective_message.reply_text.call_args
     def test_status_has_no_switch_keyboard(self):
-        a=self.run_command('status');self.assertNotIn('reply_markup',a.kwargs);self.assertIn('综合状态',a.args[0]);self.assertIn('就绪',a.args[0])
+        a=self.run_command('status');self.assertNotIn('切换到',str(a.kwargs['reply_markup']));self.assertIn('综合状态',a.args[0]);self.assertIn('311',a.args[0]);self.assertIn('ComWechat 专用',a.args[0])
     def test_web_status_is_connection_detail(self):
         self.assertIn('网页版微信连接',self.run_command('web_status').args[0])
     def test_backend_has_switch_keyboard(self):self.assertIn('reply_markup',self.run_command('backend').kwargs)
-    def test_native_status_preserves_original_handler(self):
-        self.f.backend='comwechat';self.u.effective_message.text='/status';self.f.command(self.u,None);self.u.effective_message.reply_text.assert_not_called()
+    def test_native_status_preserves_original_details(self):
+        self.f.backend='comwechat';a=self.run_command('status');self.assertIn('原生完整巡检内容',a.args[0]);self.assertIn('ComWechat',a.args[0])
     def test_native_alias_calls_original_status(self):
         self.f.backend='comwechat';self.run_command('cw_status');self.f.channel.operations_ui.status.assert_called_once()
     def test_common_version_not_intercepted_as_native(self):
