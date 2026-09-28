@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlsplit
 import requests
 
 MAX_BYTES = 25 * 1024 * 1024
-ALLOWED_HOSTS = ('video.qq.com',)
+ALLOWED_HOSTS = ('qq.com',)
 
 
 def allowed_url(url):
