@@ -1,0 +1,34 @@
+name: efb-web-lab
+services:
+  web-check:
+    image: efb-web-standby:20260927
+    profiles: ["offline"]
+    network_mode: none
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
+    environment:
+      EFB_WEB_ENABLE_LOGIN: "0"
+  web-standby:
+    user: "${EFB_WEB_UID:-10001}:${EFB_WEB_GID:-10001}"
+    image: efb-web-standby:20260927
+    profiles: ["standby"]
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
+    environment:
+      EFB_WEB_ENABLE_LOGIN: "0"
+    dns: ["192.168.12.2"]
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "1"
+    networks:
+      bypass_router:
+        ipv4_address: "192.168.12.116"
+networks:
+  bypass_router:
+    external: true
+    name: efb2026_efb_lan

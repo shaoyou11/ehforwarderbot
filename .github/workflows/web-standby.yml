@@ -1,0 +1,50 @@
+name: Isolated Web WeChat image
+on:
+  push:
+    branches: ["feat/web-standby-20260927"]
+    paths: ["web-image/**", ".github/workflows/web-standby.yml"]
+  workflow_dispatch:
+concurrency:
+  group: web-standby-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  web-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build separate web image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: .
+          file: web-image/Dockerfile
+          load: true
+          push: false
+          tags: |
+            ghcr.io/shaoyou11/efb-web-standby:20260927
+            ghcr.io/shaoyou11/efb-web-standby:${{ github.sha }}
+          build-args: |
+            EFB_IMAGE_SOURCE_REF=${{ github.sha }}
+          cache-from: type=gha,scope=web-standby
+          cache-to: type=gha,mode=max,scope=web-standby
+      - name: Offline runtime and activation guards
+        run: |
+          set -eu
+          image=ghcr.io/shaoyou11/efb-web-standby:20260927
+          docker run --rm --network none --read-only --tmpfs /tmp --cap-drop ALL "$image"
+          if docker run --rm --network none --read-only --tmpfs /tmp -e EFB_WEB_ENABLE_LOGIN=1 -e EFB_PROFILE=comwechat "$image"; then exit 1; fi
+          docker run --rm --network none --entrypoint python "$image" -m pip check
+          docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-web/test_binding_sync.py
+      - name: Publish only dedicated web tag
+        run: |
+          docker push ghcr.io/shaoyou11/efb-web-standby:20260927
+          docker push ghcr.io/shaoyou11/efb-web-standby:${{ github.sha }}
