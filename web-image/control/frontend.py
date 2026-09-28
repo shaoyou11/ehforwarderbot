@@ -78,7 +78,8 @@ class Frontend:
         return ('EFB 综合状态\n\n'+prefix+
                 '\n【微信网页版】\n微信连接：'+online+'\n状态心跳：'+('正常' if fresh else '过期')+
                 '\n处理中消息：'+str(health.get('inflight','未知'))+'\nTelegram Bot API：'+api+
-                '\n普通文件/视频：当前保护上限 25 MiB\n视频号：使用网页版原生处理'+
+                '\n普通文件/视频：当前保护上限 25 MiB'+
+                ('\n视频号：可播放直链转视频；失败保留原生卡片' if os.environ.get('EFB_WEB_CHANNELS_VIDEO')=='1' else '\n视频号：使用网页版原生处理')+
                 '\n\n【绑定与个性化】\n'+counts+'\n最近同步：'+sync_time+
                 '\n群成员姓名隐藏：'+('开启' if spoiler is True else '关闭' if spoiler is False else '未知')+
                 '\n接收策略 /filter；姓名隐藏 /namespoiler；图片复用 /imageperception'+

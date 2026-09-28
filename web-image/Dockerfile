@@ -47,7 +47,8 @@ COPY web-image/compile_zh.py /tmp/compile-zh.py
 COPY web-image/patch_media.py /tmp/patch-media.py
 COPY web-image/patch_upload.py /tmp/patch-upload.py
 COPY web-image/patch_login.py /tmp/patch-login.py
-RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-login.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
+COPY web-image/patch_channels.py /tmp/patch-channels.py
+RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-login.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-channels.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
@@ -115,6 +116,6 @@ RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
 ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE=zh_CN
-RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py && python /opt/efb-backend-control/test_login_guard.py && python /opt/efb-backend-control/test_health.py
+RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py && python /opt/efb-backend-control/test_login_guard.py && python /opt/efb-backend-control/test_health.py && python /opt/efb-backend-control/test_channels_video.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
