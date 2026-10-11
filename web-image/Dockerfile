@@ -52,7 +52,7 @@ COPY web-image/patch_channels.py /tmp/patch-channels.py
 COPY web-image/patch_topic_guard.py /tmp/patch-topic-guard.py
 COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/efb_telegram_master/topic_guard.py
 RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-login.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-channels.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
-RUN pip3 freeze --all > /tmp/web-packages.txt
+RUN pip3 freeze --all --exclude pip > /tmp/web-packages.txt
 RUN python /tmp/patch-topic-guard.py /usr/local/lib/python3.11/site-packages
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
