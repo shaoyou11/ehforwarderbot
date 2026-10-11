@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.19
 # Stage 1: Builder stage - Install build dependencies and Python packages
 FROM python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929 AS builder
 
@@ -55,7 +56,12 @@ RUN pip3 freeze --all > /tmp/web-packages.txt
 RUN python /tmp/patch-topic-guard.py /usr/local/lib/python3.11/site-packages
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
-FROM python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+
+# Copy the official Python runtime without installation tools. No production
+# files are removed: the final filesystem is assembled from selected artifacts.
+COPY --from=builder --exclude=lib/python3.11/site-packages --exclude=lib/python3.11/ensurepip --exclude=bin/pip* /usr/local/ /usr/local/
+ENV PATH="/usr/local/bin:${PATH}"
 
 ARG EFB_IMAGE_BUILD_TIME=unknown
 ARG EFB_IMAGE_SOURCE_REF=unknown
@@ -85,6 +91,7 @@ RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
 RUN set -ex; \
     apk upgrade --no-cache; \
     apk add --no-cache --update \
+        libbz2 libexpat libffi libuuid ncurses-libs readline sqlite-libs xz-libs gdbm libnsl libtirpc \
         libmagic \
         cairo \
         ffmpeg \
@@ -95,16 +102,15 @@ RUN set -ex; \
         openssl \
         libwebp \
         cronie \
-        py3-ruamel.yaml; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock setuptools wheel packaging pip;
+        py3-ruamel.yaml;
 
 # Copy installed python packages from builder stage's site-packages
-COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder --exclude=pip --exclude=pip-*.dist-info /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 # Copy executables installed by pip packages
 COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
 
 # Fail the image build if the public Lottie GIF renderer cannot load Cairo.
-RUN python -c "from lottie.exporters.gif import export_gif; from lottie.exporters.cairo import PngRenderer"
+RUN python -c "import bz2, ctypes, curses, dbm.gnu, lzma, readline, sqlite3, ssl; from lottie.exporters.gif import export_gif; from lottie.exporters.cairo import PngRenderer; import importlib.util; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('ensurepip') is None"
 
 # Copy entrypoint script and make it executable
 COPY web-image/control/ /opt/efb-backend-control/
