@@ -48,8 +48,11 @@ COPY web-image/patch_media.py /tmp/patch-media.py
 COPY web-image/patch_upload.py /tmp/patch-upload.py
 COPY web-image/patch_login.py /tmp/patch-login.py
 COPY web-image/patch_channels.py /tmp/patch-channels.py
+COPY web-image/patch_topic_guard.py /tmp/patch-topic-guard.py
+COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/efb_telegram_master/topic_guard.py
 RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-login.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-channels.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all > /tmp/web-packages.txt
+RUN python /tmp/patch-topic-guard.py /usr/local/lib/python3.11/site-packages
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
@@ -111,6 +114,7 @@ COPY web-image/prepare_profile.py /opt/efb-web/prepare_profile.py
 COPY web-image/binding_sync.py /opt/efb-web/binding_sync.py
 COPY web-image/test_binding_sync.py /opt/efb-web/test_binding_sync.py
 COPY --from=builder /tmp/web-packages.txt /opt/efb-web/packages.txt
+RUN python /opt/efb-backend-control/test_topic_guard.py
 RUN addgroup -g 10001 efbweb && adduser -D -u 10001 -G efbweb efbweb
 RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001

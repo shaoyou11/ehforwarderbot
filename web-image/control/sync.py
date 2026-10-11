@@ -67,8 +67,14 @@ def synchronize(config,active,force=False):
     current=rows(target/'blueset.telegram/tgdata.db');managed=set(table.values())
     normalized=lambda d:{k:sorted(json.dumps(r,sort_keys=True) for r in v if r['slave_uid'] in managed) for k,v in d.items()}
     binding_changed=normalized(current)!=normalized(plan)
-    report={'mapped':len(mappings),'pending':config.get('pending_bindings',152),'direction':active+' → '+other,'pending_config_sections':pending_config,'updated':time.time(),'changed':binding_changed or bool(changes)}
-    if not report['changed']:return report
+    native = original if active == 'comwechat' else current
+    pending = {r['slave_uid'] for values in native.values() for r in values
+               if r['slave_uid'].startswith('honus.comwechat ') and r['slave_uid'] not in sources}
+    report={'mapped':len(mappings),'pending':len(pending),'direction':active+' → '+other,'pending_config_sections':pending_config,'updated':time.time(),'changed':binding_changed or bool(changes)}
+    if not report['changed']:
+        from topic_catalog import export_catalog
+        export_catalog(config,mappings)
+        return report
     backup=root/'backups'/str(time.time_ns());backup.mkdir(parents=True,mode=0o700)
     db=target/'blueset.telegram/tgdata.db'
     saved={}
@@ -103,4 +109,6 @@ def synchronize(config,active,force=False):
         raise
     finally:c.close()
     report['backup']=backup.name
+    from topic_catalog import export_catalog
+    export_catalog(config,mappings)
     return report

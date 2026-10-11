@@ -24,12 +24,23 @@ class SyncTests(unittest.TestCase):
         for backend in ['web','comwechat']:
             p=self.root/backend;p.mkdir();(p/'blueset.telegram').mkdir();self.profiles[backend]=str(p)
             with sqlite3.connect(p/'blueset.telegram/tgdata.db') as c:
+                c.execute('CREATE TABLE slavechatinfo(slave_channel_id TEXT,slave_chat_uid TEXT,slave_chat_name TEXT,slave_chat_alias TEXT,slave_chat_group_id TEXT)')
                 c.executescript('CREATE TABLE chatassoc(id INTEGER PRIMARY KEY,master_uid TEXT,slave_uid TEXT); CREATE TABLE topicassoc(id INTEGER PRIMARY KEY,topic_chat_id TEXT,message_thread_id TEXT,slave_uid TEXT); CREATE TABLE msglog(value TEXT);')
                 c.execute('INSERT INTO msglog VALUES (?)',(backend+'-history',))
             (p/'blueset.telegram/config.yaml').write_text('token: '+backend+'-secret\nflags:\n  send_image_as_file: false\n  local_bot_api: true\n')
         atomic_json(self.root/'mapping.json',[{'source':'honus.comwechat person','target':'blueset.wechat one'}])
         self.config={'control_root':str(self.root),'profiles':self.profiles,'pending_bindings':2}
     def db(self,backend):return sqlite3.connect(Path(self.profiles[backend])/'blueset.telegram/tgdata.db')
+    def test_pending_counts_unmapped_native_identities_in_both_directions(self):
+        with self.db('comwechat') as c:
+            c.execute("INSERT INTO chatassoc VALUES (1,'a','honus.comwechat unknown')")
+            c.execute("INSERT INTO topicassoc VALUES (1,'forum','99','honus.comwechat unknown')")
+        self.assertEqual(synchronize(self.config,'web')['pending'],1)
+        self.assertEqual(synchronize(self.config,'comwechat')['pending'],1)
+        with self.db('comwechat') as c:
+            c.execute('DELETE FROM chatassoc')
+            c.execute('DELETE FROM topicassoc')
+        self.assertEqual(synchronize(self.config,'web')['pending'],0)
     def test_ambiguous_mapping_aborts_before_any_write(self):
         atomic_json(self.root/'mapping.json',[{'source':'honus.comwechat a','target':'blueset.wechat one'},{'source':'honus.comwechat b','target':'blueset.wechat one'}])
         with self.db('comwechat') as c:c.execute("INSERT INTO chatassoc VALUES (1,'group','honus.comwechat a')")
