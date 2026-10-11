@@ -57,7 +57,15 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
-          format: table
+          format: json
+          output: web-trivy-report.json
+      - name: Retain vulnerability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-runtime-security
+          path: web-trivy-report.json
+          retention-days: 7
       - name: Publish only dedicated web tag
         run: |
           docker push ghcr.io/shaoyou11/efb-web-standby:20260927
