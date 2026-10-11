@@ -92,6 +92,7 @@ RUN set -ex; \
     apk upgrade --no-cache; \
     apk add --no-cache --update \
         libbz2 libexpat libffi libuuid ncurses-libs readline sqlite-libs xz-libs gdbm libnsl libtirpc \
+        ca-certificates tzdata \
         libmagic \
         cairo \
         ffmpeg \

@@ -5,6 +5,15 @@ import unittest
 
 
 class DependencyCompatibility(unittest.TestCase):
+    def test_runtime_timezone_and_certificate_store(self):
+        import datetime
+        import ssl
+        from zoneinfo import ZoneInfo
+        from pathlib import Path
+        self.assertEqual(datetime.datetime(2026, 10, 11, tzinfo=ZoneInfo('Asia/Shanghai')).utcoffset(), datetime.timedelta(hours=8))
+        self.assertTrue(Path('/etc/localtime').resolve(strict=True).is_file())
+        self.assertGreater(ssl.create_default_context().cert_store_stats()['x509_ca'], 0)
+
     def test_chinese_response_without_declared_encoding(self):
         import requests
         response = requests.Response()
