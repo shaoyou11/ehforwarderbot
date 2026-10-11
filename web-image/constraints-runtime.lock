@@ -1,0 +1,5 @@
+# Keep this maintenance release on the deployed Web image's dependency versions.
+charset-normalizer==3.5.1
+peewee==4.5.1
+pycparser==3.0
+soupsieve==2.10

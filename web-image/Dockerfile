@@ -6,6 +6,8 @@ ENV TZ 'Asia/Shanghai'
 ENV PIP_DEFAULT_TIMEOUT=30 PIP_RETRIES=2
 
 COPY constraints.lock /tmp/constraints.lock
+COPY web-image/constraints-runtime.lock /tmp/constraints-runtime.lock
+RUN cat /tmp/constraints-runtime.lock >> /tmp/constraints.lock
 
 # Install build-time dependencies for apk packages and pip packages
 RUN set -ex; \
@@ -76,6 +78,8 @@ LABEL org.opencontainers.image.created="${EFB_IMAGE_BUILD_TIME}" \
       org.opencontainers.image.revision="${EFB_IMAGE_SOURCE_REF}"
 
 COPY constraints.lock /tmp/constraints.lock
+COPY web-image/constraints-runtime.lock /tmp/constraints-runtime.lock
+RUN cat /tmp/constraints-runtime.lock >> /tmp/constraints.lock
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
