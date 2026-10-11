@@ -1,0 +1,15 @@
+# Narrow maintenance release: preserve the exact deployed runtime and dependencies.
+# Use the full Dockerfile explicitly when testing upstream/runtime upgrades.
+FROM ghcr.io/shaoyou11/efb-web-standby@sha256:7800dc16777434dfdbfc71bcbfb36b33906bf106a9c4aaaf9722b8532a8e25e5
+USER root
+ARG EFB_IMAGE_SOURCE_REF=unknown
+ARG EFB_IMAGE_BUILD_TIME=unknown
+COPY web-image/patch_topic_guard.py /opt/efb-web/patch_topic_guard.py
+COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/efb_telegram_master/topic_guard.py
+COPY web-image/control/topic_guard.py web-image/control/topic_catalog.py web-image/control/sync.py web-image/control/test_topic_guard.py web-image/control/test_control.py /opt/efb-backend-control/
+RUN python /opt/efb-web/patch_topic_guard.py /usr/local/lib/python3.11/site-packages
+ENV EFB_IMAGE_SOURCE_REF="${EFB_IMAGE_SOURCE_REF}"
+ENV EFB_IMAGE_BUILD_TIME="${EFB_IMAGE_BUILD_TIME}"
+LABEL org.opencontainers.image.revision="${EFB_IMAGE_SOURCE_REF}" org.opencontainers.image.created="${EFB_IMAGE_BUILD_TIME}"
+USER 10001:10001
+RUN python /opt/efb-backend-control/test_topic_guard.py && python /opt/efb-backend-control/test_control.py

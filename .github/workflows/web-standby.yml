@@ -4,6 +4,11 @@ on:
     branches: ["feat/web-standby-20260927"]
     paths: ["web-image/**", ".github/workflows/web-standby.yml"]
   workflow_dispatch:
+    inputs:
+      maintenance:
+        description: "Use pinned production runtime for topic-guard maintenance"
+        type: boolean
+        default: false
 concurrency:
   group: web-standby-${{ github.ref }}
   cancel-in-progress: true
@@ -26,7 +31,7 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           context: .
-          file: web-image/Dockerfile
+          file: ${{ inputs.maintenance && 'web-image/Dockerfile.maintenance' || 'web-image/Dockerfile' }}
           load: true
           push: false
           tags: |
