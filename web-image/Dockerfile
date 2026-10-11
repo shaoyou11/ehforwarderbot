@@ -1,5 +1,5 @@
 # Stage 1: Builder stage - Install build dependencies and Python packages
-FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4 AS builder
+FROM python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929 AS builder
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
@@ -55,7 +55,7 @@ RUN pip3 freeze --all > /tmp/web-packages.txt
 RUN python /tmp/patch-topic-guard.py /usr/local/lib/python3.11/site-packages
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
-FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+FROM python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929
 
 ARG EFB_IMAGE_BUILD_TIME=unknown
 ARG EFB_IMAGE_SOURCE_REF=unknown
