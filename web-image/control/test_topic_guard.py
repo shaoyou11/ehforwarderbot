@@ -87,6 +87,42 @@ class IntegrationTests(unittest.TestCase):
         obj=SimpleNamespace(db=db,chat_manager=manager,_topic_mutex=threading.Lock())
         for _ in range(1000):self.assertEqual(ns['create_topic'](obj,'blueset.wechat abc',-100),42)
         manager.get_chat.assert_not_called()
+    def load_method(self, filename, method, namespace):
+        import importlib.util
+        spec=importlib.util.find_spec('efb_telegram_master')
+        if spec is None:self.skipTest('requires image dependencies')
+        source=Path(spec.origin).parent/filename
+        tree=ast.parse(source.read_text());node=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name==method)
+        node.returns=None
+        for arg in node.args.args:arg.annotation=None
+        namespace['__package__']='efb_telegram_master'
+        exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),namespace)
+        return namespace[method]
+    def test_concurrent_new_topic_creates_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        namespace={'utils':SimpleNamespace(chat_id_str_to_id=lambda uid:('blueset.wechat','abc',None))}
+        method=self.load_method('chat_binding.py','create_topic',namespace)
+        state={'thread':None};db=Mock();db.get_topic_thread_id.side_effect=lambda **kw:state['thread']
+        def save(**kw):state['thread']=kw['message_thread_id']
+        db.add_topic_assoc.side_effect=save
+        bot=Mock()
+        def create(**kw):time.sleep(.01);return SimpleNamespace(message_thread_id=42)
+        bot.create_forum_topic.side_effect=create
+        obj=SimpleNamespace(db=db,bot=bot,chat_manager=Mock(),_topic_mutex=threading.Lock(),channel=SimpleNamespace(),logger=Mock())
+        with patch('efb_telegram_master.topic_guard.check_topic',return_value=None):
+            with ThreadPoolExecutor(max_workers=8) as pool:results=list(pool.map(lambda _:method(obj,'blueset.wechat abc',-100),range(24)))
+        self.assertEqual(results,[42]*24);bot.create_forum_topic.assert_called_once()
+    def test_held_message_uses_normal_private_delivery_destination(self):
+        from efb_telegram_master.topic_guard import TopicRouteOverride as Route
+        namespace={'utils':SimpleNamespace(chat_id_to_str=lambda **kw:'blueset.wechat abc'),'TelegramChatID':int,'SystemChat':type('SystemChat',(),{})}
+        method=self.load_method('slave_message.py','get_slave_msg_dest',namespace)
+        chat=SimpleNamespace();msg=SimpleNamespace(uid='one',chat=chat,author=SimpleNamespace())
+        db=Mock();db.get_chat_assoc.return_value=[]
+        manager=Mock();manager.update_chat_obj.return_value=chat
+        bot=Mock();bot.get_chat_info.return_value=SimpleNamespace(is_forum=True)
+        binding=Mock();binding.create_topic.side_effect=Route(123,notice='待核对\n')
+        obj=SimpleNamespace(db=db,chat_manager=manager,bot=bot,logger=Mock(),channel=SimpleNamespace(config={'admins':[123]},topic_group=-100,chat_binding=binding),generate_message_template=lambda *a:'原消息头',chat_dest_cache=Mock())
+        self.assertEqual(method(obj,msg),('待核对\n原消息头',(123,None)))
     def test_catalog_contains_only_bound_identities_and_confirmed_mapping(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);p=root/'native/blueset.telegram';p.mkdir(parents=True)
