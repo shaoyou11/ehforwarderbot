@@ -5,9 +5,7 @@ ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 ENV PIP_DEFAULT_TIMEOUT=30 PIP_RETRIES=2
 
-COPY constraints.lock /tmp/constraints.lock
-COPY web-image/constraints-runtime.lock /tmp/constraints-runtime.lock
-RUN cat /tmp/constraints-runtime.lock >> /tmp/constraints.lock
+COPY web-image/constraints-runtime.lock /tmp/constraints.lock
 
 # Install build-time dependencies for apk packages and pip packages
 RUN set -ex; \
@@ -25,7 +23,7 @@ RUN set -ex; \
         openssl-dev \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
-RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3==2.8.0 setuptools==83.0.0; \
+RUN set -e; pip3 install --no-cache-dir --constraint /tmp/constraints.lock urllib3 setuptools wheel packaging pip; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --constraint /tmp/constraints.lock rich Pillow; \
@@ -77,9 +75,7 @@ ENV HTTPS_PROXY ""
 LABEL org.opencontainers.image.created="${EFB_IMAGE_BUILD_TIME}" \
       org.opencontainers.image.revision="${EFB_IMAGE_SOURCE_REF}"
 
-COPY constraints.lock /tmp/constraints.lock
-COPY web-image/constraints-runtime.lock /tmp/constraints-runtime.lock
-RUN cat /tmp/constraints-runtime.lock >> /tmp/constraints.lock
+COPY web-image/constraints-runtime.lock /tmp/constraints.lock
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
@@ -100,7 +96,7 @@ RUN set -ex; \
         libwebp \
         cronie \
         py3-ruamel.yaml; \
-    pip3 install --no-cache-dir --constraint /tmp/constraints.lock 'setuptools==83.0.0';
+    pip3 install --no-cache-dir --constraint /tmp/constraints.lock setuptools wheel packaging pip;
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
@@ -124,6 +120,6 @@ RUN mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 WORKDIR /data
 ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE=zh_CN
-RUN python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py && python /opt/efb-backend-control/test_login_guard.py && python /opt/efb-backend-control/test_health.py && python /opt/efb-backend-control/test_channels_video.py
+RUN python /opt/efb-backend-control/test_dependency_compat.py && python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py && python /opt/efb-backend-control/test_login_guard.py && python /opt/efb-backend-control/test_health.py && python /opt/efb-backend-control/test_channels_video.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
