@@ -14,7 +14,7 @@ class BindingUI:
         dispatcher.add_handler(CallbackQueryHandler(self.callback,pattern=r'^efblink:'),group=-3)
     def authorized(self,u):return bool(u.effective_user and u.effective_user.id in self.f.admins)
     def session(self,**data):
-        self.sessions={k:v for k,v in self.sessions.items() if time.time()-v['created']<600}
+        self.sessions={k:v for k,v in list(self.sessions.items()) if time.time()-v['created']<600}
         token=secrets.token_hex(6);self.sessions[token]={'created':time.time(),**data};return token
     def button(self,label,token,action):return Button(label,callback_data=f'efblink:{token}:{action}')
     def held_markup(self,msg):
@@ -53,7 +53,10 @@ class BindingUI:
         rows=[[self.button(records[k].get('name',k)[:50]+' · 原绑定',token,'source'+str(i))] for i,k in enumerate(s['sources']) if page*8<=i<(page+1)*8 and k in records]
         return '当前微信会话：'+s['name']+'\n请选择对应的原会话（群组或话题），核实身份后确认。\n也可在目标话题发送 /link 名称，直接绑定该话题。',Markup(rows+self.pages(token,'orig',page,len(s['sources'])))
     def confirmation(self,token):
-        s=self.sessions[token];db=self.channel.chat_binding.db;c=read_json(self.f.root/'topic-guard-catalog.json')
+        s=self.sessions[token];s.pop('owners',None)
+        live=coordinator.slaves['blueset.wechat'].bot.search(puid=s['target'].split(' ',1)[1])
+        if len(live)!=1:return '当前微信会话已变化，请重新发送 /link 名称，选择最新联系人后核对。',Markup([[self.button('关闭',token,'close')]])
+        db=self.channel.chat_binding.db;c=read_json(self.f.root/'topic-guard-catalog.json')
         if s.get('source'):
             s['record']=c['records'][s['source']];s['prior']=[uid for uid,r in c.get('confirmed',{}).items() if r.get('source')==s['source']];loc=s['record']
         else:loc={'topics':[[s['dest'],s['thread']]] if s.get('thread') else [],'chats':[] if s.get('thread') else ['blueset.telegram '+str(s['dest'])]}
@@ -63,8 +66,8 @@ class BindingUI:
             if owner:owners.append(owner)
         parents={'blueset.telegram '+str(x[0]) for x in loc['topics']}
         for d in set(loc['chats'])-parents:owners.extend(db.get_chat_assoc(master_uid=d))
-        s['owners']=sorted(set(owners))
         if set(owners)-set(s.get('prior',[])+[s['target']]):return '所选位置已绑定其他会话，未覆盖。请在私聊核对原绑定，或选择空话题。',Markup([[self.button('关闭',token,'close')]])
+        s['owners']=sorted(set(owners))
         label='原会话「'+s['record'].get('name','')+'」的已有位置' if s.get('source') else ('当前话题' if s.get('thread') else '当前群组')
         return '确认将微信会话「'+s['name']+'」绑定到'+label+'？\n该微信会话的旧位置会替换；不新建话题，不重发旧消息。',Markup([[self.button('确认绑定',token,'apply')],[self.button('关闭',token,'close')]])
     def callback(self,u,context):
@@ -99,6 +102,7 @@ class BindingUI:
             elif action.startswith('source'):s['source']=s['sources'][int(action[6:])];text,markup=self.confirmation(token)
             elif action=='apply':
                 if 'owners' not in s:raise ValueError()
+                if len(coordinator.slaves['blueset.wechat'].bot.search(puid=s['target'].split(' ',1)[1]))!=1:raise ValueError()
                 payload={k:v for k,v in s.items() if k in {'actor','target','name','dest','thread','source','record','prior','owners'}};payload.update(created=time.time(),nonce=token)
                 path=self.f.root/'binding-requests'/(token+'.json')
                 if path.exists() or (self.f.root/'binding-processed'/path.name).exists():raise ValueError()
