@@ -20,7 +20,7 @@ class BindingUI:
     def held_markup(self,msg):
         target='blueset.wechat '+str(msg.chat.uid);token=hashlib.sha256(target.encode()).hexdigest()[:16]
         path=self.f.root/'binding-pending'/(token+'.json')
-        if not path.exists():atomic_json(path,{'target':target,'name':msg.chat.alias or msg.chat.name},0o600)
+        if not path.exists():atomic_json(path,{'target':target,'name':msg.chat.alias or msg.chat.name,'names':[msg.chat.name,msg.chat.alias]},0o600)
         return Markup([[Button('核对原绑定 / 选择已有话题',callback_data='efblink:pending:'+token)]])
     def send_failure(self,update,msg,text):
         catalog=read_json(self.f.root/'topic-guard-catalog.json')
@@ -48,9 +48,10 @@ class BindingUI:
         records=c.get('records',{})
         if 'sources' not in s:
             from topic_guard import normalized
-            candidates=set(c.get('names',{}).get(normalized(s['name']),[]))
+            candidates=set()
+            for name in s.get('names',[s['name']]):candidates.update(c.get('names',{}).get(normalized(name),[]))
             s['sources']=sorted(records,key=lambda k:(k not in candidates,records[k].get('name','')))
-        rows=[[self.button(records[k].get('name',k)[:50]+' · 原绑定',token,'source'+str(i))] for i,k in enumerate(s['sources']) if page*8<=i<(page+1)*8 and k in records]
+        rows=[[self.button(records[k].get('name',k)[:50]+(' · 原话题' if records[k]['topics'] else ' · 原群组'),token,'source'+str(i))] for i,k in enumerate(s['sources']) if page*8<=i<(page+1)*8 and k in records]
         return '当前微信会话：'+s['name']+'\n请选择对应的原会话（群组或话题），核实身份后确认。\n也可在目标话题发送 /link 名称，直接绑定该话题。',Markup(rows+self.pages(token,'orig',page,len(s['sources'])))
     def confirmation(self,token):
         s=self.sessions[token];s.pop('owners',None)
