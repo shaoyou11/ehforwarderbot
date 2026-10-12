@@ -20,11 +20,12 @@ def export_catalog(config, mappings):
             identity = channel + ' ' + uid
             if identity not in records:
                 continue
+            records[identity]['name'] = alias or name or identity
             for value in (name, alias):
                 key = normalized(value)
                 if key:
                     names.setdefault(key, set()).add(identity)
-    confirmed = {m['target']: records.get(m['source'], {'chats': [], 'topics': []})
+    confirmed = {m['target']: {**records.get(m['source'], {'chats': [], 'topics': []}), 'source': m['source']}
                  for m in mappings if m.get('confirmed') is not False}
     atomic_json(Path(config['control_root']) / 'topic-guard-catalog.json',
-                {'version': 1, 'updated': time.time(), 'names': {k: sorted(v) for k, v in names.items()}, 'confirmed': confirmed})
+                {'version': 1, 'updated': time.time(), 'names': {k: sorted(v) for k, v in names.items()}, 'confirmed': confirmed, 'records': records})

@@ -153,8 +153,27 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
             self.notify('EFB 操作未完成：'+reason+'。当前保留 '+NAMES.get(self.state['active'],self.state['active'])+'，请使用 /backend 查看。')
         finally:
             path.replace(self.root/'processed'/path.name)
+    def process_binding(self,path):
+        done=self.root/'binding-processed'/path.name
+        if done.exists():
+            path.replace(done.with_name(path.stem+'.duplicate.'+str(time.time_ns())+'.json'));return
+        try:
+            if self.state.get('active')!='web' or self.state.get('phase')!='idle':raise ValueError('backend not ready')
+            if not self.running('web') or self.running('comwechat'):raise ValueError('backend conflict')
+            request=read_json(path)
+            if request.get('payload',{}).get('nonce')!=path.stem:raise ValueError('nonce mismatch')
+            from binding_review import apply_review
+            text=apply_review(self.config,request)
+            self.notify(text)
+        except Exception as e:
+            self.notify('绑定未完成：校验未通过或状态已变化。原位置未自动覆盖，请重新使用 /link 核对。')
+        finally:path.replace(done)
+
     def loop(self):
-        for name in ['requests','processed','backups']:(self.root/name).mkdir(exist_ok=True)
+        for name in ['requests','processed','backups','binding-requests','binding-processed','binding-pending']:(self.root/name).mkdir(exist_ok=True)
+        for name in ['binding-requests','binding-pending']:
+            os.chown(self.root/name,self.root.stat().st_uid,self.root.stat().st_gid)
+            os.chmod(self.root/name,0o700)
         lock=open(self.root/'worker.lock','a+');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if self.state.get('phase') in {'switching','syncing'}:
             active=self.state.get('active','web');other='comwechat' if active=='web' else 'web'
@@ -195,6 +214,7 @@ r=requests.post(c['flags']['api_base_url']+c['token']+'/sendMessage',json={'chat
                     try:self.run(['docker','exec',self.config['containers']['web'],'python','/opt/efb-backend-control/qr_relay.py'],25)
                     except Exception:pass
                 last_cleanup=time.monotonic()
+            for path in sorted((self.root/'binding-requests').glob('*.json')):self.process_binding(path)
             for path in sorted((self.root/'requests').glob('*.json')):self.process(path)
             if time.monotonic()-last_sync>120 and self.state.get('phase')=='idle':
                 try:self.synchronize()

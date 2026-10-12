@@ -14,7 +14,7 @@ from protocol import atomic_json,read_json,button,verify
 from health import bot_api_status
 
 NAMES={'web':'微信网页版','comwechat':'ComWechat'}
-COMMON=[('status','查看当前微信方案的综合状态'),('login','登录当前微信方案'),('backend','切换微信方案'),('sync','同步绑定与个性化设置'),('link','管理会话绑定'),('help','查看命令说明')]
+COMMON=[('status','查看当前微信方案的综合状态'),('login','登录当前微信方案'),('backend','切换微信方案'),('sync','同步绑定与个性化设置'),('link','绑定微信会话到群组或当前话题'),('help','查看命令说明')]
 NATIVE_ONLY={'wechat','bridge','watchdog','filetest','security','backup_info','health','issues','trace'}
 
 
@@ -41,6 +41,9 @@ class Frontend:
         self.original_menus=channel.watchdog_control.update_command_menu
         channel.watchdog_control.update_command_menu=self.menus
         if self.backend=='web':channel.watchdog_control.refresh_group_menu=lambda *a,**k:self.menus()
+        if self.backend=='web':
+            from binding_ui import BindingUI
+            BindingUI(self)
         self.menus()
         threading.Thread(target=self.heartbeat,daemon=True,name='efb-backend-status').start()
 
@@ -101,7 +104,7 @@ class Frontend:
             if command=='cw_status':self.channel.operations_ui.status(update,context);raise ApplicationHandlerStop
             return
         if command=='help' and update.effective_user and update.effective_user.id in self.admins:
-            update.effective_message.reply_text('网页版命令\n/backend 切换方案\n/status 综合状态\n/web_status 网页微信连接\n/sync 同步绑定与设置\n/web_login 离线重新登录\n/link 绑定会话\n/chat 会话入口\n/info 当前绑定\n/filter 接收策略\n/namespoiler 姓名隐藏\n/imageperception 图片复用\n/cleanup 存储占用\n/version 组件版本\n/extra 更多当前渠道功能\n/login 登录当前方案；/cw_login 登录 ComWechat（需先切换）',reply_markup=self.navigation());raise ApplicationHandlerStop
+            update.effective_message.reply_text('网页版命令\n/backend 切换方案\n/status 综合状态\n/web_status 网页微信连接\n/sync 同步绑定与设置\n/web_login 离线重新登录\n/link 绑定当前群组或话题；可加名称搜索\n/bindings 核对原绑定\n/chat 会话入口\n/info 当前绑定\n/filter 接收策略\n/namespoiler 姓名隐藏\n/imageperception 图片复用\n/cleanup 存储占用\n/version 组件版本\n/extra 更多当前渠道功能\n/login 登录当前方案；/cw_login 登录 ComWechat（需先切换）',reply_markup=self.navigation());raise ApplicationHandlerStop
         if not self.authorized(update):
             if update.effective_user and update.effective_user.id in self.admins:update.effective_message.reply_text('请在机器人私聊中管理方案和状态。')
             raise ApplicationHandlerStop
@@ -184,7 +187,7 @@ class Frontend:
         from efb_telegram_master.watchdog_control import PRIVATE_COMMANDS, LINKED_GROUP_COMMANDS
         extra=[('web_status','网页版：连接详情'),('web_login','网页版：扫码登录'+('' if self.backend=='web' else '（需先切换）')),('cw_status','ComWechat：运行详情'),('cw_login','ComWechat：扫码登录'+('' if self.backend=='comwechat' else '（需先切换）'))]
         base=[(k,('' if k not in NATIVE_ONLY else 'ComWechat：')+v) for k,v in PRIVATE_COMMANDS if k not in dict(COMMON) and (self.backend=='comwechat' or k not in NATIVE_ONLY)]
-        private=list(dict(COMMON+extra+base+[('version','查看组件版本'),('extra','查看当前方案的扩展命令')]).items())
+        private=list(dict(COMMON+extra+([('bindings','核对网页版原绑定')] if self.backend=='web' else [])+base+[('version','查看组件版本'),('extra','查看当前方案的扩展命令')]).items())
         group=list(LINKED_GROUP_COMMANDS)
         try:
             if self.backend=='comwechat':self.original_menus()

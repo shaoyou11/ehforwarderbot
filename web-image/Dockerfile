@@ -54,6 +54,8 @@ COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/ef
 RUN python /tmp/patch-web.py && python /tmp/patch-media.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-upload.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-login.py /usr/local/lib/python3.11/site-packages && python /tmp/patch-channels.py /usr/local/lib/python3.11/site-packages && python /tmp/compile-zh.py /usr/local/lib/python3.11/site-packages && pip3 check
 RUN pip3 freeze --all --exclude pip > /tmp/web-packages.txt
 RUN python /tmp/patch-topic-guard.py /usr/local/lib/python3.11/site-packages
+COPY web-image/patch_binding_review.py /tmp/patch-binding-review.py
+RUN python /tmp/patch-binding-review.py /usr/local/lib/python3.11/site-packages
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
@@ -130,3 +132,5 @@ ENV EFB_WEB_ENABLE_LOGIN=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANGUAGE
 RUN python /opt/efb-backend-control/test_dependency_compat.py && python /opt/efb-web/test_web.py && python /opt/efb-web/test_binding_sync.py && python /opt/efb-backend-control/test_control.py && python /opt/efb-backend-control/test_frontend.py && python /opt/efb-backend-control/test_upload.py && python /opt/efb-backend-control/test_qr_relay.py && python /opt/efb-backend-control/test_login_guard.py && python /opt/efb-backend-control/test_health.py && python /opt/efb-backend-control/test_channels_video.py
 
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
+
+RUN python /opt/efb-backend-control/test_binding_review.py
