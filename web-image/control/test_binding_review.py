@@ -33,6 +33,14 @@ class ReviewTests(unittest.TestCase):
         atomic_json(self.root/'topic-guard-catalog.json',{'records':{'honus.comwechat one':self.record}})
         self.apply()
         with sqlite3.connect(self.dbpath) as db:self.assertEqual(list(db.execute('SELECT master_uid FROM chatassoc')),[('blueset.telegram -999',)])
+    def test_explicit_group_overrides_historical_topic(self):
+        self.data.update(dest=-999,thread=None)
+        self.apply()
+        self.assertEqual(self.rows(),[])
+        with sqlite3.connect(self.dbpath) as db:self.assertEqual(list(db.execute('SELECT master_uid FROM chatassoc')),[('blueset.telegram -999',)])
+    def test_explicit_topic_overrides_original_location(self):
+        self.data.update(dest=-200,thread=77)
+        self.apply();self.assertEqual(self.rows(),[('-200','77','blueset.wechat new')])
     def test_tampered_payload_rejected(self):
         mac=sign(b'test-secret',self.data);self.data['target']='blueset.wechat injected'
         with self.assertRaises(ValueError):apply_review(self.config,{'payload':self.data,'mac':mac})
@@ -73,7 +81,8 @@ class RoutingTests(unittest.TestCase):
         from types import SimpleNamespace as NS
         from unittest.mock import Mock,patch
         from telegram.ext import ApplicationHandlerStop
-        ui=object.__new__(BindingUI);ui.sessions={};ui.f=NS(admins=[1])
+        ui=object.__new__(BindingUI);ui.sessions={};ui.f=NS(admins=[1]);ui.channel=NS(chat_binding=NS(db=Mock()))
+        ui.channel.chat_binding.db.get_chat_assoc.return_value=[];ui.channel.chat_binding.db.get_topic_assocs.return_value=[]
         m=NS(chat=NS(id=-100,type='supergroup'),message_thread_id=42,reply_text=Mock())
         update=NS(effective_user=NS(id=1),effective_message=m)
         slave=Mock();slave.get_chats.return_value=[NS(uid='abc',name='测试',alias=None)]
@@ -81,6 +90,20 @@ class RoutingTests(unittest.TestCase):
             with self.assertRaises(ApplicationHandlerStop):ui.command(update,NS(args=[]))
         session=next(iter(ui.sessions.values()));self.assertEqual((session['dest'],session['thread']),(-100,42))
         m.reply_text.assert_called_once()
+    def test_link_markers_use_current_database(self):
+        from binding_ui import BindingUI
+        from types import SimpleNamespace as NS
+        from unittest.mock import Mock
+        ui=object.__new__(BindingUI);db=Mock();ui.channel=NS(chat_binding=NS(db=db))
+        ui.sessions={'x':{'items':[{'uid':'blueset.wechat a','name':'测试'}],'dest':-100,'thread':42}}
+        db.get_chat_assoc.return_value=['blueset.telegram -100'];db.get_topic_assocs.return_value=[(-100,42)]
+        self.assertIn('当前已绑定',ui.chat_page('x',0)[1].inline_keyboard[0][0].text)
+        db.get_topic_assocs.return_value=[(-200,43)];db.get_chat_assoc.return_value=['blueset.telegram -200']
+        self.assertIn('已绑定话题',ui.chat_page('x',0)[1].inline_keyboard[0][0].text)
+        db.get_topic_assocs.return_value=[];db.get_chat_assoc.return_value=['blueset.telegram -300']
+        self.assertIn('已绑定群组',ui.chat_page('x',0)[1].inline_keyboard[0][0].text)
+        db.get_chat_assoc.return_value=[]
+        self.assertIn('未绑定',ui.chat_page('x',0)[1].inline_keyboard[0][0].text)
     def test_pending_button_survives_new_ui_instance(self):
         from binding_ui import BindingUI
         from types import SimpleNamespace as NS

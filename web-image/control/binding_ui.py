@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton as Button,InlineKeyboardMarkup as Mark
 from telegram.ext import CommandHandler,CallbackQueryHandler,ApplicationHandlerStop
 from ehforwarderbot import coordinator
 from protocol import atomic_json,read_json
-from binding_review import sign
+from binding_review import sign,selected_location
 
 class BindingUI:
     def __init__(self,f):
@@ -40,8 +40,17 @@ class BindingUI:
         if (page+1)*8<count:row.append(self.button('下一页',token,prefix+str(page+1)))
         return ([row] if row else [])+[[self.button('关闭',token,'close')]]
     def chat_page(self,token,page):
-        s=self.sessions[token];rows=[[self.button(c['name'][:55],token,'chat'+str(i))] for i,c in enumerate(s['items']) if page*8<=i<(page+1)*8]
-        return '请选择微信会话'+('，将关联当前话题。' if s.get('thread') else '，下一步确认绑定位置。')+'\n可使用 /link 名称 搜索。',Markup(rows+self.pages(token,'page',page,len(s['items'])))
+        s=self.sessions[token];rows=[]
+        db=self.channel.chat_binding.db
+        for i,c in enumerate(s['items']):
+            if not page*8<=i<(page+1)*8:continue
+            chats=db.get_chat_assoc(slave_uid=c['uid']);topics=db.get_topic_assocs(c['uid'])
+            here=(bool(s.get('thread')) and any(str(d)==str(s['dest']) and str(t)==str(s['thread']) for d,t in topics)) or (not s.get('thread') and s.get('dest') and 'blueset.telegram '+str(s['dest']) in chats)
+            parents={'blueset.telegram '+str(d) for d,t in topics}
+            direct=[d for d in chats if d not in parents]
+            state='✅ 当前已绑定' if here else ('🔗 已绑定群组' if direct else ('🔗 已绑定话题' if topics else ('🔗 已绑定' if chats else '未绑定')))
+            rows.append([self.button(state+' · '+c['name'][:40],token,'chat'+str(i))])
+        return '请选择微信会话'+('，将关联当前话题。' if s.get('thread') else '，下一步确认绑定位置。')+'\n🔗 表示已有绑定，✅ 表示绑定当前位置。\n可使用 /link 名称 搜索。',Markup(rows+self.pages(token,'page',page,len(s['items'])))
     def originals(self,token,page):
         s=self.sessions[token];c=read_json(self.f.root/'topic-guard-catalog.json')
         if time.time()-c.get('updated',0)>900:return '原绑定索引暂不可用，请稍后重试。',Markup([[self.button('关闭',token,'close')]])
@@ -59,8 +68,8 @@ class BindingUI:
         if len(live)!=1:return '当前微信会话已变化，请重新发送 /link 名称，选择最新联系人后核对。',Markup([[self.button('关闭',token,'close')]])
         db=self.channel.chat_binding.db;c=read_json(self.f.root/'topic-guard-catalog.json')
         if s.get('source'):
-            s['record']=c['records'][s['source']];s['prior']=[uid for uid,r in c.get('confirmed',{}).items() if r.get('source')==s['source']];loc=s['record']
-        else:loc={'topics':[[s['dest'],s['thread']]] if s.get('thread') else [],'chats':[] if s.get('thread') else ['blueset.telegram '+str(s['dest'])]}
+            s['record']=c['records'][s['source']];s['prior']=[uid for uid,r in c.get('confirmed',{}).items() if r.get('source')==s['source']]
+        loc=selected_location(s,s.get('record'))
         owners=[]
         for d,t in loc['topics']:
             owner=db.get_topic_slave(topic_chat_id=d,message_thread_id=t)
@@ -69,7 +78,7 @@ class BindingUI:
         for d in set(loc['chats'])-parents:owners.extend(db.get_chat_assoc(master_uid=d))
         if set(owners)-set(s.get('prior',[])+[s['target']]):return '所选位置已绑定其他会话，未覆盖。请在私聊核对原绑定，或选择空话题。',Markup([[self.button('关闭',token,'close')]])
         s['owners']=sorted(set(owners))
-        label='原会话「'+s['record'].get('name','')+'」的已有位置' if s.get('source') else ('当前话题' if s.get('thread') else '当前群组')
+        label='原会话「'+s['record'].get('name','')+'」的已有位置' if s.get('source') and not s.get('dest') else ('当前话题' if s.get('thread') else '当前群组')
         return '确认将微信会话「'+s['name']+'」绑定到'+label+'？\n该微信会话的旧位置会替换；不新建话题，不重发旧消息。',Markup([[self.button('确认绑定',token,'apply')],[self.button('关闭',token,'close')]])
     def callback(self,u,context):
         q=u.callback_query

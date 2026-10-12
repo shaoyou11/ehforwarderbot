@@ -6,6 +6,17 @@ from protocol import atomic_json,read_json
 def sign(secret,data):
     return hmac.new(secret,json.dumps(data,sort_keys=True,ensure_ascii=False).encode(),hashlib.sha256).hexdigest()
 
+def selected_location(data, record=None):
+    # An explicit /link in a group/topic is the user's chosen destination.
+    if data.get('dest'):
+        if data.get('thread'):
+            return {'chats': [], 'topics': [[str(data['dest']), str(data['thread'])]]}
+        return {'chats': ['blueset.telegram '+str(data['dest'])], 'topics': []}
+    if record is None:
+        raise ValueError('missing destination')
+    return record
+
+
 def apply_review(config,request):
     root=Path(config['control_root']);d=request['payload']
     if not hmac.compare_digest(request['mac'],sign((root/'secret').read_bytes(),d)):raise ValueError('invalid signature')
@@ -20,9 +31,9 @@ def apply_review(config,request):
         prior=[m['target'] for m in mappings if m['source']==source]
         if prior!=d.get('prior',[]):raise ValueError('mapping changed')
         mappings=[m for m in mappings if m['source']!=source]+[{'source':source,'target':target,'confirmed':True,'evidence':'explicit Telegram admin review','name':d['name']}]
-        loc=record
+        loc=selected_location(d,record)
     else:
-        loc={'chats':[],'topics':[[str(d['dest']),str(d['thread'])]]} if d.get('thread') else {'chats':['blueset.telegram '+str(d['dest'])],'topics':[]}
+        loc=selected_location(d)
     path=Path(config['profiles']['web'])/'blueset.telegram/tgdata.db';backup=root/'backups'/('binding-review-'+d['nonce']);backup.mkdir(mode=0o700)
     with sqlite3.connect(path,timeout=15) as db:
         with sqlite3.connect(backup/'web.db') as dst:db.backup(dst)
