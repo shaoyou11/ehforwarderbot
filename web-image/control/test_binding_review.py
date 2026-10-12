@@ -28,6 +28,11 @@ class ReviewTests(unittest.TestCase):
         self.data['owners']=['blueset.wechat other']
         with self.assertRaises(ValueError):self.apply()
         self.assertEqual(self.rows(),[('-100','42','blueset.wechat other')])
+    def test_existing_direct_group_route_is_preserved(self):
+        self.record['chats']=['blueset.telegram -999']
+        atomic_json(self.root/'topic-guard-catalog.json',{'records':{'honus.comwechat one':self.record}})
+        self.apply()
+        with sqlite3.connect(self.dbpath) as db:self.assertEqual(list(db.execute('SELECT master_uid FROM chatassoc')),[('blueset.telegram -999',)])
     def test_tampered_payload_rejected(self):
         mac=sign(b'test-secret',self.data);self.data['target']='blueset.wechat injected'
         with self.assertRaises(ValueError):apply_review(self.config,{'payload':self.data,'mac':mac})

@@ -36,7 +36,8 @@ def apply_review(config,request):
         for uid in allowed:
             db.execute('DELETE FROM topicassoc WHERE slave_uid=?',(uid,));db.execute('DELETE FROM chatassoc WHERE slave_uid=?',(uid,))
         for dest,thread in loc['topics']:db.execute('INSERT INTO topicassoc(topic_chat_id,message_thread_id,slave_uid) VALUES (?,?,?)',(str(dest),str(thread),target))
-        for dest in set(loc['chats'])|{'blueset.telegram '+str(d) for d,t in loc['topics']}:db.execute('INSERT INTO chatassoc(master_uid,slave_uid) VALUES (?,?)',(dest,target))
+        routes=list(dict.fromkeys(loc['chats'] or ['blueset.telegram '+str(d) for d,t in loc['topics']]))
+        for dest in routes:db.execute('INSERT INTO chatassoc(master_uid,slave_uid) VALUES (?,?)',(dest,target))
         try:
             if source:atomic_json(root/'mapping.json',mappings,0o600)
             db.commit()
