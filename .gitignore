@@ -3,3 +3,15 @@ WeChat/
 /comwechat/
 .DS_Store
 *.bak-*
+
+# Deployment secrets and runtime data belong outside the source checkout.
+.env
+.env.*
+!.env.example
+/secrets/
+/private/
+/controller-state/
+/controller-config.json
+ha-source.json
+sources.json
+policy.json
