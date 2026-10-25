@@ -46,9 +46,20 @@ def rollback(root,backup,apply=False):
             data=json.loads(p.read_text()) if p.suffix=='.json' else yaml.safe_load(p.read_text())
             data['services']['web-standby']['image']=image
             p.write_text(json.dumps(data) if p.suffix=='.json' else yaml.safe_dump(data,allow_unicode=True,sort_keys=False))
+        started=time.time()
         subprocess.run(['docker','compose','-f',str(paths[0]),'up','-d','--no-deps','--pull','never','web-standby'],check=True,timeout=120)
+        deadline=time.time()+150
+        while time.time()<deadline:
+            time.sleep(3)
+            h=json.loads((root/'controller-state/web-health.json').read_text())
+            if h.get('wechat_online') is True and h.get('ready') and h.get('updated',0)>started:
+                return {'action':'rollback_verified_online','image':image}
+        raise RuntimeError('fresh login heartbeat timeout')
+    except Exception:
+        for p in paths:p.write_bytes((snapshot/p.name).read_bytes())
+        subprocess.run(['docker','compose','-f',str(paths[0]),'up','-d','--no-deps','--pull','never','web-standby'],check=True,timeout=120)
+        raise
     finally:subprocess.run(['systemctl','start','efb-backend-control.service'],check=True)
-    return {'action':'rollback_started','image':image,'note':'verify fresh login heartbeat before declaring complete'}
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('action',choices=['off','rollback']);p.add_argument('--root',required=True);p.add_argument('--backup');p.add_argument('--apply',action='store_true');args=p.parse_args()

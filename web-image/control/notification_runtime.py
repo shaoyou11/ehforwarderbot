@@ -1,10 +1,25 @@
 """Low-priority notification worker; isolated from ordinary message processing."""
+from contextlib import contextmanager
 import fcntl
 import threading
 import time
 from pathlib import Path
 from protocol import read_json
 from notification_queue import Store, binding
+
+@contextmanager
+def bounded_transport(bot):
+    # Only the notification thread receives tighter HTTP deadlines. Ordinary
+    # requests keep their original kwargs and the active login session.
+    session=bot.core.s;original=session.request;owner=threading.get_ident()
+    def request(method,url,**kwargs):
+        if threading.get_ident()==owner:kwargs['timeout']=(3,8)
+        return original(method,url,**kwargs)
+    session.request=request
+    try:yield
+    finally:
+        if session.request is request:session.request=original
+
 
 class Notifications:
     def __init__(self, frontend):
@@ -67,7 +82,8 @@ class Notifications:
                     self.store.finish(event,'blocked','recipient_unavailable');return
                 # Reuse the active EFB transport; no login, second client, mark-as-read,
                 # Telegram resend, middleware reflection, or autonomous reconnect.
-                result=slave._bot_send_msg(chats[0],event['text'])
+                with bounded_transport(slave.bot):
+                    result=slave._bot_send_msg(chats[0],event['text'])
                 self.store.finish(event,'sent' if result else 'unknown','' if result else 'no_receipt')
             except Exception:
                 self.store.finish(event,'unknown','send_result_unknown')

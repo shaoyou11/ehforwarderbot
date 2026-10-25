@@ -102,7 +102,7 @@ class RuntimeTests(QueueFixture,unittest.TestCase):
     def test_transport_receipt_success(self):
         import time
         self.now=time.time();self.submit();obj=self.runtime();chat=object()
-        slave=NS(bot=NS(alive=True,search=Mock(return_value=[chat])),_bot_send_msg=Mock(return_value=object()))
+        slave=NS(bot=NS(core=NS(s=NS(request=Mock())),alive=True,search=Mock(return_value=[chat])),_bot_send_msg=Mock(return_value=object()))
         with patch('ehforwarderbot.coordinator.slaves',{'blueset.wechat':slave}):
             obj.tick();obj.inflight[1].join(2)
         slave._bot_send_msg.assert_called_once_with(chat,'test')
@@ -110,20 +110,31 @@ class RuntimeTests(QueueFixture,unittest.TestCase):
     def test_transport_timeout_unknown_no_retry(self):
         import time
         self.now=time.time();self.submit();obj=self.runtime()
-        slave=NS(bot=NS(alive=True,search=Mock(return_value=[object()])),_bot_send_msg=Mock(side_effect=TimeoutError))
+        slave=NS(bot=NS(core=NS(s=NS(request=Mock())),alive=True,search=Mock(return_value=[object()])),_bot_send_msg=Mock(side_effect=TimeoutError))
         with patch('ehforwarderbot.coordinator.slaves',{'blueset.wechat':slave}):
             obj.tick();obj.inflight[1].join(2);obj.tick()
         self.assertEqual(slave._bot_send_msg.call_count,1);self.assertEqual(self.store.counts(),{'unknown':1})
     def test_missing_live_contact_is_blocked(self):
         import time
         self.now=time.time();self.submit();obj=self.runtime()
-        slave=NS(bot=NS(alive=True,search=Mock(return_value=[])),_bot_send_msg=Mock())
+        slave=NS(bot=NS(core=NS(s=NS(request=Mock())),alive=True,search=Mock(return_value=[])),_bot_send_msg=Mock())
         with patch('ehforwarderbot.coordinator.slaves',{'blueset.wechat':slave}):obj.tick();obj.inflight[1].join(2)
         slave._bot_send_msg.assert_not_called();self.assertEqual(self.store.counts(),{'blocked':1})
+    def test_notification_deadline_does_not_change_other_threads(self):
+        import threading
+        from notification_runtime import bounded_transport
+        original=Mock();bot=NS(core=NS(s=NS(request=original)))
+        with bounded_transport(bot):
+            bot.core.s.request('POST','local-test',timeout=60)
+            thread=threading.Thread(target=lambda:bot.core.s.request('POST','local-test',timeout=60));thread.start();thread.join(2)
+        self.assertEqual(original.call_args_list[0].kwargs['timeout'],(3,8))
+        self.assertEqual(original.call_args_list[1].kwargs['timeout'],60)
+        self.assertIs(bot.core.s.request,original)
+
     def test_hung_send_does_not_spawn_more_workers(self):
         import time,threading
         self.now=time.time();self.submit();obj=self.runtime();gate=threading.Event()
-        slave=NS(bot=NS(alive=True,search=Mock(return_value=[object()])),_bot_send_msg=Mock(side_effect=lambda *a:gate.wait(3)))
+        slave=NS(bot=NS(core=NS(s=NS(request=Mock())),alive=True,search=Mock(return_value=[object()])),_bot_send_msg=Mock(side_effect=lambda *a:gate.wait(3)))
         with patch('ehforwarderbot.coordinator.slaves',{'blueset.wechat':slave}):
             obj.tick();event,thread,started=obj.inflight;obj.inflight=(event,thread,started-21)
             obj.tick();self.assertEqual(self.store.counts(),{'unknown':1});obj.tick();gate.set();thread.join(2)
@@ -148,5 +159,36 @@ class HttpTests(QueueFixture,unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as error:send('test-key')
             self.assertEqual(error.exception.code,503)
         finally:server.shutdown();server.server_close();thread.join(3)
+
+class RollbackTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+        self.backup=self.root/'baseline';self.backup.mkdir()
+        self.image='ghcr.io/shaoyou11/efb-web-standby@sha256:'+'0'*64
+        atomic_json(self.backup/'manifest.json',{'image':self.image})
+        atomic_json(self.root/'controller-state/state.json',{'active':'web','phase':'idle'})
+        atomic_json(self.root/'controller-state/web-health.json',{'inflight':0,'queue_size':0})
+        atomic_json(self.root/'controller-state/notifications/policy.json',{'enabled':True,'revision':'v1'})
+        (self.root/'controller-state/backups').mkdir()
+        (self.root/'docker-compose.yaml').write_text('services:\n  web-standby:\n    image: current-image\n')
+        self.original=(self.root/'docker-compose.yaml').read_bytes()
+    def test_dry_run_has_no_mutations(self):
+        from notification_switch import rollback
+        with patch('notification_switch.subprocess.run') as run:
+            self.assertEqual(rollback(self.root,self.backup)['action'],'rollback');run.assert_not_called()
+        self.assertEqual((self.root/'docker-compose.yaml').read_bytes(),self.original)
+        self.assertTrue(json.loads((self.root/'controller-state/notifications/policy.json').read_text())['enabled'])
+    def test_failed_rollback_restores_previous_deployment(self):
+        import subprocess
+        from notification_switch import rollback
+        calls=[]
+        def run(args,**kwargs):
+            calls.append(args)
+            if args[:2]==['docker','compose'] and sum(x[:2]==['docker','compose'] for x in calls)==1:raise subprocess.CalledProcessError(1,args)
+        with patch('notification_switch.subprocess.run',side_effect=run):
+            with self.assertRaises(subprocess.CalledProcessError):rollback(self.root,self.backup,True)
+        self.assertEqual((self.root/'docker-compose.yaml').read_bytes(),self.original)
+        self.assertEqual(calls[-1],['systemctl','start','efb-backend-control.service'])
+        self.assertFalse(json.loads((self.root/'controller-state/notifications/policy.json').read_text())['enabled'])
 
 if __name__=='__main__':unittest.main()
