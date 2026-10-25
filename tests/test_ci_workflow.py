@@ -89,3 +89,24 @@ def test_production_never_reads_pr_cache():
     assert "cache-from: type=gha,scope=release\n" in release
     assert "scope=canary" not in release
     assert "type=gha,scope=release" in job_block("canary")
+
+
+def test_native_publication_requires_explicit_master_dispatch():
+    release = job_block('deploy').split('runs-on:')[0]
+    assert "github.event_name == 'workflow_dispatch'" in release
+    assert 'inputs.publish == true' in release
+    assert "github.event_name == 'push'" not in release
+    assert "tags: [ 'v*.*.*' ]" not in WORKFLOW
+    assert "(github.event_name == 'push' && github.ref == 'refs/heads/master')" in job_block('canary')
+
+
+def test_web_pr_and_master_checks_never_implicitly_publish():
+    web = (Path(__file__).parents[1] / '.github/workflows/web-standby.yml').read_text()
+    assert '  pull_request:\n    branches: ["master"]' in web
+    assert '  push:\n    branches: ["master"]' in web
+    assert 'feat/web-standby-20260927' not in web
+    publish = web.split('- name: Publish only dedicated web tag')[1]
+    assert "if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/master'" in publish
+    assert 'efb:latest' not in web
+    assert 'test_notifications test_notification_ha' in web
+    assert 'ssh ' not in web and 'scp ' not in web

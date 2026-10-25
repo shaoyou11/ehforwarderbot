@@ -1,10 +1,17 @@
 name: Isolated Web WeChat image
 on:
   push:
-    branches: ["feat/web-standby-20260927"]
+    branches: ["master"]
+    paths: ["web-image/**", ".github/workflows/web-standby.yml"]
+  pull_request:
+    branches: ["master"]
     paths: ["web-image/**", ".github/workflows/web-standby.yml"]
   workflow_dispatch:
     inputs:
+      publish:
+        description: "Explicitly publish web images from master (never deploy hosts)"
+        type: boolean
+        default: false
       maintenance:
         description: "Use pinned production runtime for topic-guard maintenance"
         type: boolean
@@ -14,15 +21,19 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
-  packages: write
+  packages: read
 jobs:
   web-image:
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+      - if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/master'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -50,6 +61,7 @@ jobs:
           docker run --rm --network none --entrypoint python "$image" -c "import importlib.util; assert importlib.util.find_spec('pip') is None"
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-backend-control/test_dependency_compat.py
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-web/test_binding_sync.py
+          docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python -w /opt/efb-backend-control "$image" -m unittest test_notifications test_notification_ha
       - name: Scan runtime vulnerabilities before publishing
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -68,6 +80,7 @@ jobs:
           path: web-trivy-report.json
           retention-days: 7
       - name: Publish only dedicated web tag
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/master'
         run: |
           docker push ghcr.io/shaoyou11/efb-web-standby:20260927
           docker push ghcr.io/shaoyou11/efb-web-standby:${{ github.sha }}

@@ -95,7 +95,7 @@ class Frontend:
                 '\n群成员姓名隐藏：'+('开启' if spoiler is True else '关闭' if spoiler is False else '未知')+
                 '\n接收策略 /filter；姓名隐藏 /namespoiler；图片复用 /imageperception'+
                 '\n\n【运行环境】\n'+ '\n'.join(flags)+'\n数据盘剩余：'+space+
-                ('\n网络：网页版与 Bot API 独立运行；网关 192.168.12.2' if state.get('network_independent') else '\n网络：尚未完成独立化')+
+                ('\n网络：网页版与 Bot API 独立运行；网关以部署网络配置为准' if state.get('network_independent') else '\n网络：尚未完成独立化')+
                 '\n\n【功能区分】\n通用：/link /chat /info /cleanup /version /sync'+
                 '\n网页版：/web_status /web_login'+
                 '\nComWechat：/cw_status /cw_login；专用 /wechat /bridge /watchdog /trace /issues'+

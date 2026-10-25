@@ -4,6 +4,7 @@ Usage: python independent_network.py NATIVE_ROOT WEB_ROOT WEB_IMAGE_DIGEST
 Does not stop/start containers. Rollback uses the emitted backup directory.
 """
 import json
+import ipaddress
 import os
 import shutil
 import sys
@@ -20,6 +21,13 @@ def environment(service,changes):
 
 def prepare(native,web,image):
     if not image.startswith('ghcr.io/shaoyou11/efb-web-standby@sha256:'):raise ValueError('pinned published web image required')
+    # Explicit private deployment inputs; validate before creating or changing files.
+    bot_ip=str(ipaddress.IPv4Address(os.environ['EFB_BOT_API_IPV4']))
+    web_ip=str(ipaddress.IPv4Address(os.environ['EFB_WEB_IPV4']))
+    dns=str(ipaddress.IPv4Address(os.environ['EFB_DNS']))
+    network=os.environ['EFB_LAN_NETWORK']
+    if not network.strip() or bot_ip==web_ip:raise ValueError('distinct addresses and existing network required')
+    bot_url='http://'+bot_ip+':8081'
     stamp=time.strftime('%Y%m%d-%H%M%S');backup=web/('network-backup-'+stamp);backup.mkdir(mode=0o700)
     paths=[native/'docker-compose.yaml',web/'docker-compose.yaml',web/'login-test.compose.json',web/'controller-config.json',native/'operations/telegram_notify.py']
     config=json.loads((web/'controller-config.json').read_text())
@@ -36,20 +44,20 @@ def prepare(native,web,image):
         video_compose.write_text(yaml.safe_dump(video,allow_unicode=True,sort_keys=False))
     n=yaml.safe_load((native/'docker-compose.yaml').read_text());w=yaml.safe_load((web/'docker-compose.yaml').read_text())
     bot=n['services']['telegram-bot-api'];bot.pop('network_mode',None);bot.pop('depends_on',None)
-    bot['networks']={'efb_lan':{'ipv4_address':'192.168.12.115'}};bot['dns']=['192.168.12.2'];bot['sysctls']={'net.ipv6.conf.all.disable_ipv6':'1'}
+    bot['networks']={'efb_lan':{'ipv4_address':bot_ip}};bot['dns']=[dns];bot['sysctls']={'net.ipv6.conf.all.disable_ipv6':'1'}
     environment(bot,{'TELEGRAM_HTTP_IP_ADDRESS':'0.0.0.0'})
     bot['image']='ghcr.io/shaoyou11/telegram-bot-api@sha256:3ef7ad38566ac54cca97d787ff22d293a7ffdc8ce7031791d3e59fa78c5de4d6'
     n['services']['efb']['image']='ghcr.io/shaoyou11/efb@sha256:6840ccb49aaf56ffc9b933ff78e4e71d278b47740aa42e88354e05f02a045fab'
-    for key in ['efb','wechat-session-watchdog']:environment(n['services'][key],{'TELEGRAM_BOT_API':'http://192.168.12.115:8081'})
+    for key in ['efb','wechat-session-watchdog']:environment(n['services'][key],{'TELEGRAM_BOT_API':bot_url})
     # The host worker is the sole owner of native backend startup.
     for key in ['comwechat','efb','wechat-session-watchdog']:n['services'][key]['restart']='no'
     service=w['services']['web-standby'];service.pop('network_mode',None);service['image']=image
-    service['networks']={'shared_lan':{'ipv4_address':'192.168.12.116'}};service['dns']=['192.168.12.2'];service['sysctls']={'net.ipv6.conf.all.disable_ipv6':'1'}
+    service['networks']={'shared_lan':{'ipv4_address':web_ip}};service['dns']=[dns];service['sysctls']={'net.ipv6.conf.all.disable_ipv6':'1'}
     service['volumes']=[str(web/'personalized-v2')+':/data',str(native/'telegram-bot-api')+':/var/lib/telegram-bot-api:ro',str(web/'controller-state')+':/backend-control']
-    service['restart']='no';w['networks']={'shared_lan':{'external':True,'name':'efb2026_efb_lan'}}
+    service['restart']='no';w['networks']={'shared_lan':{'external':True,'name':network}}
     for path in config['profiles'].values():
         p=Path(path)/'blueset.telegram/config.yaml';c=yaml.safe_load(p.read_text());flags=c.setdefault('flags',{})
-        flags.update(api_base_url='http://192.168.12.115:8081/bot',api_base_file_url='http://192.168.12.115:8081/file/bot',local_bot_api=True)
+        flags.update(api_base_url=bot_url+'/bot',api_base_file_url=bot_url+'/file/bot',local_bot_api=True)
         p.write_text(yaml.safe_dump(c,allow_unicode=True,sort_keys=False))
     config.update(network_independent=True,native_container='efb2026-comwechat-1',bot_api_container='efb2026-telegram-bot-api-1',native_aux_unit='efb-video-lab.service',native_aux_container='efb-video-lab',controller_code=str(web/'controller-code'))
     (web/'controller-config.json').write_text(json.dumps(config));os.chmod(web/'controller-config.json',0o600)

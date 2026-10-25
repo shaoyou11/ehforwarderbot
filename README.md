@@ -1,3 +1,7 @@
+# 安装与重新部署入口
+
+新部署或由 AI 接手维护，请先阅读 [EFB 安装、恢复与 AI 运维指南](docs/AI-REDEPLOY.md)。以下保留原版功能说明；不要直接将历史 Compose 示例覆盖线上配置。
+
 # EFB 微信转 Telegram 镜像
 
 这是 `shaoyou11` 维护的 EFB Docker 镜像，用于通过 ComWechat 将微信消息双向转发到 Telegram。

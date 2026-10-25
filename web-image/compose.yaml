@@ -22,13 +22,13 @@ services:
     tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
     environment:
       EFB_WEB_ENABLE_LOGIN: "0"
-    dns: ["192.168.12.2"]
+    dns: ["${EFB_DNS:?set private DNS}"]
     sysctls:
       net.ipv6.conf.all.disable_ipv6: "1"
     networks:
       bypass_router:
-        ipv4_address: "192.168.12.116"
+        ipv4_address: "${EFB_WEB_IPV4:?set reserved web address}"
 networks:
   bypass_router:
     external: true
-    name: efb2026_efb_lan
+    name: "${EFB_LAN_NETWORK:?set existing network name}"

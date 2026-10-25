@@ -1,6 +1,8 @@
 # 独立网页版 EFB 镜像
 
-此镜像用于验证旧网页版通道，默认仅运行离线检查，不登录微信、不连接 Telegram、不挂载生产数据。
+部署入口：[安装、恢复与 AI 运维指南](../docs/AI-REDEPLOY.md)。当前代码已包含双方案切换、已确认身份同步、话题保护和独立 HA 通知；这些能力需要匹配的主机控制服务和私有配置，并非拉取镜像即可全部启用。
+
+默认镜像入口仍仅运行离线检查，不登录微信；真实启动要求独立 web 配置、启用环境变量和 ALLOW_WEB_LOGIN 标记。
 
 ## 固定版本与改动
 
@@ -20,16 +22,16 @@
 
 ```sh
 docker build -f web-image/Dockerfile -t efb-web-standby:20260927 .
-docker compose -f web-image/compose.yaml --profile offline run --rm web-check
+docker run --rm --network none efb-web-standby:20260927
 ```
 
-`web-check` 使用断网模式。默认入口执行测试后退出，退出不代表微信已登录。
+该命令使用断网模式。默认入口执行测试后退出，退出不代表微信已登录。
 
 ## 旁路由网络
 
-`web-standby` 复用既有 macvlan 网络 `efb2026_efb_lan`，该网络的 IPv4 网关必须为 `192.168.12.2`；不修改该网络。DNS 指定相同旁路由。Docker 内部解析器可能显示为 `127.0.0.11`，上游 DNS 以容器 HostConfig 为准。
+`web-standby` 复用私有清单中指定的既有网络，Compose 所需 `EFB_LAN_NETWORK`、`EFB_DNS`、`EFB_WEB_IPV4` 从仓库外的私有环境文件读取。网关由网络 IPAM 决定，必须核对为用户指定旁路由；设置 DNS 不会改变网关。
 
-网页版地址预设为 `192.168.12.116`。上线前重新检查地址冲突，并确认 DHCP 不会将该地址分配给其他设备。只有网页版容器禁用 IPv6，以确保走指定 IPv4 出口；原服务的 IPv6 策略不变。
+上线前检查地址冲突和 DHCP 保留。不要删除或重新创建已有网络，也不要改变其他服务的 IPv6 策略。
 
 该配置没有挂载账号数据，`EFB_WEB_ENABLE_LOGIN=0`，不会启动登录。
 
@@ -37,19 +39,13 @@ docker compose -f web-image/compose.yaml --profile offline run --rm web-check
 
 `prepare_profile.py` 只读取来源，输出到全新的独立目录，拒绝覆盖。可复制关键词规则、话题群、图片发送方式、名称显示和夜间静默；生产 Bot Token 不复制。含原通道群标识的规则保存到 `pending-mappings.yaml`，在身份映射完成前不启用。绑定数据库与登录缓存不复制。
 
-独立配置准备完成不代表绑定同步已经实现。
+独立配置准备仅生成候选；实际同步由控制服务和已确认身份映射管理，不能直接覆盖绑定库。
 
-## 后续真实登录测试
+## 启用与回退
 
-真实登录尚未验证。后续需要独立的 `/data/profiles/web`，仅启用 `blueset.wechat`，并同时满足 `EFB_WEB_ENABLE_LOGIN=1` 和独立数据目录下的 `ALLOW_WEB_LOGIN` 标记。
+生产启用顺序、数据挂载和凭据管理见部署指南。测试实例不得与当前活动前端同时使用同一机器人接收更新。两套登录缓存独立，不能复制 ComWechat 群 ID 充当网页版 PUID，也不能按同名群直接合并。
 
-测试不得使用生产 Telegram Bot 的 Token 或生产数据目录。切换控制、两通道绑定转换和配置同步属于后续阶段；当前未接入。不能复制 ComWechat 群 ID 充当网页版 PUID，也不能按同名群直接合并。
-
-上线前需要实际验证：扫码、群文本与附件双向收发、群成员身份、群改名后绑定、断网恢复、仅手机重新登录，以及稳定运行观察。离线测试通过不等于这些项目已通过。
-
-## 回退
-
-本阶段不替换生产镜像、不修改生产 Compose、不重启生产容器。停止独立测试实例即可结束测试；保留独立数据和镜像用于排查。
+实际验收需覆盖扫码、群与话题、附件、断网恢复；离线测试不等于这些项目通过。回退优先恢复先前固定镜像，保留新的绑定和消息去重状态；不要用早期测试数据覆盖生产 profile。
 
 ## 群和话题绑定同步准备
 
@@ -67,7 +63,7 @@ python web-image/binding_sync.py --source-db /readonly/tgdata.db --output /priva
 - 转换保留原 Telegram 群 ID 和话题 ID；未映射项留在 `plan.json`。
 - `binding-candidate.db` 仅为新建候选，绝不自动覆盖现有数据库。正式应用需停止目标实例、检查冲突和目标现有绑定后再合并。
 
-后续增量同步可重复执行导出与规划；当前没有定时同步、双向覆盖或 Telegram 切换按钮。涉及原聊天 ID 的接收策略和合并规则仍需同一对应表适配，不能直接复制启用。
+增量同步由主机控制服务定期执行，也可通过 Telegram /sync 和 /backend 操作。只翻译已确认 ID 和实现支持的配置字段；合并规则中的会话列表不能直接复制启用。
 
 ### 已确认群绑定的导入
 
