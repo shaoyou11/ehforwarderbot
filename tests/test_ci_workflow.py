@@ -93,6 +93,7 @@ def test_production_never_reads_pr_cache():
 
 def test_native_publication_requires_explicit_master_dispatch():
     release = job_block('deploy').split('runs-on:')[0]
+    assert 'needs: canary' in release
     assert "github.event_name == 'workflow_dispatch'" in release
     assert 'inputs.publish == true' in release
     assert "github.event_name == 'push'" not in release
