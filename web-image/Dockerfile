@@ -134,3 +134,5 @@ RUN python /opt/efb-backend-control/test_dependency_compat.py && python /opt/efb
 ENTRYPOINT ["python", "/opt/efb-web/entrypoint.py"]
 
 RUN python /opt/efb-backend-control/test_binding_review.py
+
+RUN python /opt/efb-backend-control/test_notifications.py

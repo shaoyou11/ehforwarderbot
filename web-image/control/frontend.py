@@ -44,6 +44,14 @@ class Frontend:
         if self.backend=='web':
             from binding_ui import BindingUI
             BindingUI(self)
+            if (self.root/'notifications').is_dir():
+                try:
+                    from notification_runtime import Notifications
+                    from notification_ui import NotificationUI
+                    self.notifications=Notifications(self)
+                    NotificationUI(self,self.notifications)
+                except Exception:
+                    self.channel.logger.warning('外部通知入口未启动；普通消息转发保持原流程')
         self.menus()
         threading.Thread(target=self.heartbeat,daemon=True,name='efb-backend-status').start()
 
@@ -187,7 +195,7 @@ class Frontend:
         from efb_telegram_master.watchdog_control import PRIVATE_COMMANDS, LINKED_GROUP_COMMANDS
         extra=[('web_status','网页版：连接详情'),('web_login','网页版：扫码登录'+('' if self.backend=='web' else '（需先切换）')),('cw_status','ComWechat：运行详情'),('cw_login','ComWechat：扫码登录'+('' if self.backend=='comwechat' else '（需先切换）'))]
         base=[(k,('' if k not in NATIVE_ONLY else 'ComWechat：')+v) for k,v in PRIVATE_COMMANDS if k not in dict(COMMON) and (self.backend=='comwechat' or k not in NATIVE_ONLY)]
-        private=list(dict(COMMON+extra+([('bindings','核对网页版原绑定')] if self.backend=='web' else [])+base+[('version','查看组件版本'),('extra','查看当前方案的扩展命令')]).items())
+        private=list(dict(COMMON+extra+([('bindings','核对网页版原绑定'),('notify','外部通知：独立开关与状态')] if self.backend=='web' else [])+base+[('version','查看组件版本'),('extra','查看当前方案的扩展命令')]).items())
         group=list(LINKED_GROUP_COMMANDS)
         try:
             if self.backend=='comwechat':self.original_menus()
