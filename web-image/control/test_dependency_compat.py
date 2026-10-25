@@ -57,6 +57,20 @@ class DependencyCompatibility(unittest.TestCase):
             self.assertTrue(scope.cancel_called)
         asyncio.run(exercise())
 
+    def test_image_formats_thumbnail_and_animation(self):
+        from PIL import Image, ImageOps
+        for fmt in ('PNG','JPEG','WEBP'):
+            buffer=io.BytesIO();Image.new('RGB',(320,240),'blue').save(buffer,format=fmt)
+            buffer.seek(0)
+            with Image.open(buffer) as picture:
+                picture.load();thumbnail=ImageOps.exif_transpose(picture)
+                thumbnail.thumbnail((64,64));self.assertEqual(thumbnail.size,(64,48))
+        buffer=io.BytesIO()
+        Image.new('RGB',(8,8),'red').save(buffer,format='GIF',save_all=True,append_images=[Image.new('RGB',(8,8),'blue')],duration=100,loop=0)
+        buffer.seek(0)
+        with Image.open(buffer) as picture:
+            self.assertEqual(picture.n_frames,2);picture.seek(1);picture.convert('RGBA').load()
+
     def test_cffi_parser_and_cairo_image_renderer(self):
         from cffi import FFI
         import cairosvg
