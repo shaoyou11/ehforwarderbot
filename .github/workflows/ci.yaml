@@ -22,6 +22,7 @@ on:
       - '.github/workflows/ci.yaml'
       - 'tests/test_ci_workflow.py'
       - 'entrypoint.sh'
+      - 'web-image/control/test_dependency_compat.py'
   push:
     branches:
       - master
@@ -30,6 +31,7 @@ on:
       - 'Dockerfile'
       - 'constraints.lock'
       - 'entrypoint.sh'
+      - 'web-image/control/test_dependency_compat.py'
       - '.github/workflows/ci.yaml'
       - 'tests/test_ci_workflow.py'
   schedule:
@@ -159,6 +161,8 @@ jobs:
           assert telegram.__version__ == '22.8', telegram.__version__;
           assert efb_telegram_master.__version__ == '2.4.0.dev1', efb_telegram_master.__version__;
           assert metadata.version('setuptools') == '83.0.0', metadata.version('setuptools')"
+      - name: Offline certificate and media compatibility
+        run: docker run --rm --network none --read-only --tmpfs /tmp -v "$PWD/web-image/control/test_dependency_compat.py:/check.py:ro" --entrypoint python efb:canary /check.py
       - name: Verify installed dependency consistency
         run: docker run --rm --entrypoint pip efb:canary check
       - name: Block fixable high and critical vulnerabilities
