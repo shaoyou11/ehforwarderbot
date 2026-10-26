@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+config.json
+state.json
+MANIFEST.json
+BASELINE_SHA256.json
+STREAM_VERIFICATION.json

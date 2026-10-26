@@ -1,0 +1,32 @@
+#!/usr/bin/expect -f
+# No terminal/session logging; no message or credential in argv.
+log_user 0
+fconfigure stdout -encoding binary -translation binary
+set timeout 20
+spawn ssh -tt -o StrictHostKeyChecking=yes -o ConnectTimeout=8 -o NumberOfPasswordPrompts=1 -o PreferredAuthentications=password -o PubkeyAuthentication=no -- "$env(CODEX_REMOTE_USER)@$env(CODEX_REMOTE_HOST)" "$env(IMESSAGE_REMOTE_COMMAND)"
+match_max 1048576
+# Only authentication phase may answer password prompts. Never interpret message
+# payloads as authentication prompts after the stdin-ready marker.
+expect {
+    -re {(?i)password[^\r\n]*:} {
+        catch {stty -echo < $spawn_out(slave,name)}
+        send -- "$env(CODEX_REMOTE_PASSWORD)\r"
+        exp_continue
+    }
+    -re {IMESSAGE_STDIN_READY\r*\n} {send -- "$env(IMESSAGE_REQUEST)\r"}
+    timeout {catch {close}; catch {wait}; exit 3}
+    eof {catch {wait}; exit 4}
+}
+set result ""
+expect {
+    -re {(^|\r*\n)(\{[^\r\n]*\})\r*\n} {
+        set result $expect_out(2,string)
+        exp_continue
+    }
+    timeout {catch {close}; catch {wait}; exit 3}
+    eof {}
+}
+catch wait status
+if {$result eq ""} {exit 4}
+puts $result
+exit 0

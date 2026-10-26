@@ -52,6 +52,14 @@ class Frontend:
                     NotificationUI(self,self.notifications)
                 except Exception:
                     self.channel.logger.warning('外部通知入口未启动；普通消息转发保持原流程')
+        if self.backend=='web' and (self.root/'imessage/image-runtime-config.json').is_file():
+            try:
+                import sys
+                sys.path.insert(0,'/opt/efb-imessage')
+                from image_runtime import start
+                self.imessage_images=start(self)
+            except Exception:
+                self.channel.logger.warning('iMessage 图片入口未启动；普通转发保持原流程')
         self.menus()
         threading.Thread(target=self.heartbeat,daemon=True,name='efb-backend-status').start()
 
@@ -103,8 +111,13 @@ class Frontend:
 
     def panel(self,update):
         actor=update.effective_user.id;other='comwechat' if self.backend=='web' else 'web'
-        keyboard=InlineKeyboardMarkup([[InlineKeyboardButton('切换到 '+NAMES[other],callback_data=button(self.secret,other,actor))],[InlineKeyboardButton('立即同步',callback_data=button(self.secret,'sync',actor))],*self.navigation().inline_keyboard])
-        update.effective_message.reply_text(self.text(),reply_markup=keyboard)
+        rows=[[InlineKeyboardButton('切换到 '+NAMES[other],callback_data=button(self.secret,other,actor))],[InlineKeyboardButton('立即同步',callback_data=button(self.secret,'sync',actor))]]
+        text=self.text()
+        controls=getattr(self,'imessage_controls',None)
+        if controls:
+            details,buttons=controls.render(actor);text+='\n\n'+details;rows.extend(buttons)
+        keyboard=InlineKeyboardMarkup(rows+list(self.navigation().inline_keyboard))
+        update.effective_message.reply_text(text,reply_markup=keyboard)
 
     def command(self,update,context):
         command=(update.effective_message.text or '').split()[0].split('@')[0].lstrip('/')
@@ -195,6 +208,7 @@ class Frontend:
         from efb_telegram_master.watchdog_control import PRIVATE_COMMANDS, LINKED_GROUP_COMMANDS
         extra=[('web_status','网页版：连接详情'),('web_login','网页版：扫码登录'+('' if self.backend=='web' else '（需先切换）')),('cw_status','ComWechat：运行详情'),('cw_login','ComWechat：扫码登录'+('' if self.backend=='comwechat' else '（需先切换）'))]
         base=[(k,('' if k not in NATIVE_ONLY else 'ComWechat：')+v) for k,v in PRIVATE_COMMANDS if k not in dict(COMMON) and (self.backend=='comwechat' or k not in NATIVE_ONLY)]
+        if getattr(self,'imessage_controls',None):extra.append(('imessage','iMessage：桥接、图片开关与实际状态'))
         private=list(dict(COMMON+extra+([('bindings','核对网页版原绑定'),('notify','外部通知：独立开关与状态')] if self.backend=='web' else [])+base+[('version','查看组件版本'),('extra','查看当前方案的扩展命令')]).items())
         group=list(LINKED_GROUP_COMMANDS)
         try:

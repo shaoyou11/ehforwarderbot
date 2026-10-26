@@ -7,6 +7,8 @@ ARG EFB_IMAGE_BUILD_TIME=unknown
 COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/efb_telegram_master/topic_guard.py
 COPY web-image/control/topic_guard.py web-image/control/topic_catalog.py web-image/control/sync.py web-image/control/worker.py web-image/control/test_topic_guard.py web-image/control/test_control.py /opt/efb-backend-control/
 COPY web-image/control/ /opt/efb-backend-control/
+COPY web-image/imessage/*.py /opt/efb-imessage/
+RUN ln -s /opt/efb-backend-control /opt/control
 # The verified base already contains the routing hook; do not apply it twice.
 ENV EFB_IMAGE_SOURCE_REF="${EFB_IMAGE_SOURCE_REF}"
 ENV EFB_IMAGE_BUILD_TIME="${EFB_IMAGE_BUILD_TIME}"
