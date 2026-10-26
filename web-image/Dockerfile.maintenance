@@ -1,6 +1,6 @@
 # Narrow maintenance release: preserve the exact deployed runtime and dependencies.
 # Use the full Dockerfile explicitly when testing upstream/runtime upgrades.
-FROM ghcr.io/shaoyou11/efb-web-standby@sha256:9f6e73f9c111b563d873ef3616073ebc77da605db0287628a52c43f92d807d18
+FROM ghcr.io/shaoyou11/efb-web-standby@sha256:2e846e87a76707fe11c5826525f55e84b8efb571d07e3ef11f20c11f3ba6c745
 USER root
 ARG EFB_IMAGE_SOURCE_REF=unknown
 ARG EFB_IMAGE_BUILD_TIME=unknown
@@ -8,7 +8,7 @@ COPY web-image/control/topic_guard.py /usr/local/lib/python3.11/site-packages/ef
 COPY web-image/control/topic_guard.py web-image/control/topic_catalog.py web-image/control/sync.py web-image/control/worker.py web-image/control/test_topic_guard.py web-image/control/test_control.py /opt/efb-backend-control/
 COPY web-image/control/ /opt/efb-backend-control/
 COPY web-image/imessage/*.py /opt/efb-imessage/
-RUN ln -s /opt/efb-backend-control /opt/control
+RUN test "$(readlink /opt/control)" = /opt/efb-backend-control || ln -s /opt/efb-backend-control /opt/control
 # The verified base already contains the routing hook; do not apply it twice.
 ENV EFB_IMAGE_SOURCE_REF="${EFB_IMAGE_SOURCE_REF}"
 ENV EFB_IMAGE_BUILD_TIME="${EFB_IMAGE_BUILD_TIME}"
