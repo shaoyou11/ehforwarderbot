@@ -62,6 +62,10 @@ jobs:
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-backend-control/test_dependency_compat.py
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python "$image" /opt/efb-web/test_binding_sync.py
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python -w /opt/efb-backend-control "$image" -m unittest test_notifications test_notification_ha
+      - name: Independent bridge regression (no network or private config)
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp --memory 512m --cpus 1 --cap-drop ALL --entrypoint python ghcr.io/shaoyou11/efb-web-standby:20260927 -m unittest discover -s /opt/efb-imessage -q
+          python3 -m unittest discover -s web-image/imessage/mac -q
       - name: Scan runtime vulnerabilities before publishing
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:

@@ -23,6 +23,13 @@ class Commands(unittest.TestCase):
     def test_web_status_is_connection_detail(self):
         self.assertIn('网页版微信连接',self.run_command('web_status').args[0])
     def test_backend_has_switch_keyboard(self):self.assertIn('reply_markup',self.run_command('backend').kwargs)
+    def test_backend_includes_imessage_controls(self):
+        from telegram import InlineKeyboardButton
+        self.f.imessage_controls=MagicMock()
+        self.f.imessage_controls.render.return_value=('iMessage 实际状态',[[InlineKeyboardButton('关闭 iMessage',callback_data='efbim:test:bridge_off')]])
+        a=self.run_command('backend')
+        self.assertIn('iMessage 实际状态',a.args[0]);self.assertIn('efbim:test:bridge_off',str(a.kwargs['reply_markup']))
+
     def test_native_status_preserves_original_details(self):
         self.f.backend='comwechat';a=self.run_command('status');self.assertIn('原生完整巡检内容',a.args[0]);self.assertIn('ComWechat',a.args[0])
     def test_native_alias_calls_original_status(self):

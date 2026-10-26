@@ -1,0 +1,57 @@
+#!/usr/bin/expect -f
+# Dedicated, bounded image stream; payload files are private and never logged.
+log_user 0
+fconfigure stdout -encoding binary -translation binary
+set timeout 45
+spawn ssh -tt -o StrictHostKeyChecking=yes -o ConnectTimeout=8 -o NumberOfPasswordPrompts=1 -o PreferredAuthentications=password -o PubkeyAuthentication=no -- "$env(CODEX_REMOTE_USER)@$env(CODEX_REMOTE_HOST)" "$env(IMESSAGE_REMOTE_COMMAND)"
+match_max 1048576
+expect {
+    -re {(?i)password[^\r\n]*:} {
+        catch {stty -echo < $spawn_out(slave,name)}
+        send -- "$env(CODEX_REMOTE_PASSWORD)\r"
+        exp_continue
+    }
+    -re {IMESSAGE_STDIN_READY\r*\n} {
+        # Tcl 8.x may alter astral Unicode. Encode metadata as exact UTF-8 bytes.
+        # The hex envelope contains only bounded header metadata, never file data.
+        if {[info exists env(IMESSAGE_IMAGE_HEADER_HEX)]} {
+            fconfigure $spawn_id -encoding binary -translation binary
+            send -- "[binary format H* $env(IMESSAGE_IMAGE_HEADER_HEX)]\r"
+        } else {send -- "$env(IMESSAGE_IMAGE_HEADER)\r"}
+    }
+    timeout {catch {close}; catch {wait}; exit 3}
+    eof {catch {wait}; exit 4}
+}
+set result ""
+set body_sent 0
+set written 0
+set output [open $env(IMESSAGE_IMAGE_OUTPUT) w]
+fconfigure $output -encoding ascii -translation lf
+expect {
+    -re {IMESSAGE_IMAGE_BODY_READY\r*\n} {
+        if {$env(IMESSAGE_IMAGE_MODE) ne "put" || $body_sent} {close $output;catch {close};exit 5}
+        set body_sent 1
+        set body [open $env(IMESSAGE_IMAGE_INPUT) r]
+        fconfigure $body -encoding ascii -translation lf
+        while {[gets $body line] >= 0} {send -- "$line\r"}
+        close $body
+        exp_continue
+    }
+    -re {(^|\r*\n)(\{[^\r\n]*\})\r*\n} {
+        set result $expect_out(2,string)
+        set length [string bytelength $result]
+        incr written [expr {$length + 1}]
+        # 25 MiB payload plus Base64 framing; matches Python MAX_BYTES * 2.
+        if {$length > 19900 || $written > 52428800} {close $output;catch {close};exit 6}
+        puts $output $result
+        exp_continue
+    }
+    timeout {close $output;catch {close};catch {wait};exit 3}
+    eof {}
+}
+close $output
+catch wait status
+if {$result eq ""} {exit 4}
+# Image data stays in the output file. Never echo a chunk, error body or filename.
+puts {{"finished":true}}
+exit 0

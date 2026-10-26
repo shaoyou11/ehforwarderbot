@@ -117,6 +117,8 @@ RUN python -c "import bz2, ctypes, curses, dbm.gnu, lzma, readline, sqlite3, ssl
 
 # Copy entrypoint script and make it executable
 COPY web-image/control/ /opt/efb-backend-control/
+COPY web-image/imessage/*.py /opt/efb-imessage/
+RUN ln -s /opt/efb-backend-control /opt/control
 COPY web-image/entrypoint.py /opt/efb-web/entrypoint.py
 COPY web-image/test_web.py /opt/efb-web/test_web.py
 COPY web-image/prepare_profile.py /opt/efb-web/prepare_profile.py
