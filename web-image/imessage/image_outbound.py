@@ -16,7 +16,9 @@ class Outbound:
         self.path=Path(config['state_dir'])/'outbound-images.sqlite'
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS grants(id TEXT PRIMARY KEY,epoch INTEGER,created REAL,mime TEXT,digest TEXT,size INTEGER,data BLOB,status TEXT)')
-        with self.db() as db:db.execute('CREATE TABLE IF NOT EXISTS media_names(id TEXT PRIMARY KEY,filename TEXT)')
+        with self.db() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS media_names(id TEXT PRIMARY KEY,filename TEXT)')
+            db.execute('CREATE INDEX IF NOT EXISTS grants_active ON grants(status,created)')
         self.path.chmod(0o600)
     @contextlib.contextmanager
     def db(self):

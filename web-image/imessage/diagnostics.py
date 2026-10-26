@@ -33,7 +33,8 @@ def record(config,stage,error):
             name=f.name
             try:
                 json.dump(value,f);f.flush();os.fsync(f.fileno())
-                if os.geteuid()==0:os.fchown(f.fileno(),101,101)
+                if os.geteuid()==0:
+                    shared=root.stat();os.fchown(f.fileno(),shared.st_uid,shared.st_gid)
                 os.fchmod(f.fileno(),0o640)
                 os.replace(name,path)
             finally:

@@ -599,6 +599,11 @@ def config_for(home):
 
 
 def launch(home):
+    # With an installed user agent, manual controls delegate process ownership to launchd.
+    # Missing registration retains the previously validated standalone mode.
+    if (home/'launchd_service.json').exists():
+        from launch_service import ensure_worker
+        if ensure_worker(home):return
     # Avoid even a temporary duplicate process when the manual worker is alive.
     try:
         with lock(home/'worker.lock',nonblocking=True):pass
@@ -612,15 +617,20 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--home',type=Path,default=DEFAULT_HOME)
     parser.add_argument('--preserve-text-state',action='store_true')
+    parser.add_argument('--launchd-worker',action='store_true')
     parser.add_argument('operation',choices=['on','off','status','worker'])
     args=parser.parse_args();os.umask(0o077)
-    if args.preserve_text_state and args.operation!='worker':parser.error('--preserve-text-state is worker-only')
+    if (args.preserve_text_state or args.launchd_worker) and args.operation!='worker':parser.error('worker flags require worker operation')
     store=Store(args.home)
     try:
         cfg=config_for(args.home)
         bridge=Bridge(store,cfg)
         if args.operation=='worker':
-            bridge.run(preserve_text_state=args.preserve_text_state);return
+            if args.launchd_worker:
+                from service_worker import run_service
+                run_service(store,cfg)
+            else:bridge.run(preserve_text_state=args.preserve_text_state)
+            return
         if args.operation=='status':
             local=store.get()
             print('本地：'+('开启' if local['enabled'] else '关闭'))
@@ -629,6 +639,13 @@ def main():
             print('图片功能：'+('已开启' if bridge.images_enabled() else '关闭'))
             print('文件视频接入：'+('开启' if bridge.attachments_enabled() else '关闭'))
             print('托管控制：'+('开启' if bridge.managed else '关闭'))
+            if (args.home/'launchd_service.json').exists():
+                from launch_service import job_status
+                job=job_status();print('登录恢复：'+('运行中' if job['pid'] else '待启动' if job['registered'] else '未加载'))
+                cached=args.home/'service_status.json'
+                if cached.exists():
+                    status=json.loads(cached.read_text());fresh=0<=time.time()-status.get('updated',0)<45
+                    print('BlueBubbles：'+('已连接' if fresh and status.get('blue_available') is True else '等待应用就绪或按需检查'))
             try:
                 with lock(args.home/'worker.lock',nonblocking=True):
                     print('转发进程：未运行')

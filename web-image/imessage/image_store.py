@@ -23,7 +23,9 @@ class ImageStore:
                 mime TEXT, created REAL, expires REAL, status TEXT);
                 CREATE TABLE IF NOT EXISTS chunks (
                 id TEXT, offset INTEGER, data BLOB, PRIMARY KEY(id,offset));''')
-        with self.db() as db:db.execute('CREATE TABLE IF NOT EXISTS media_names(id TEXT PRIMARY KEY,filename TEXT)')
+        with self.db() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS media_names(id TEXT PRIMARY KEY,filename TEXT)')
+            db.execute('CREATE INDEX IF NOT EXISTS images_active ON images(status,expires)')
         self.path.chmod(0o660)
 
     @contextlib.contextmanager
@@ -35,7 +37,7 @@ class ImageStore:
 
     def expire(self, db):
         db.execute("UPDATE images SET status='expired' WHERE status IN ('uploading','pending') AND expires<=?", (self.clock(),))
-        db.execute("DELETE FROM chunks WHERE id IN (SELECT id FROM images WHERE status NOT IN ('uploading','pending'))")
+        db.execute("DELETE FROM chunks WHERE EXISTS (SELECT 1 FROM images WHERE images.id=chunks.id AND images.status NOT IN ('uploading','pending'))")
 
     def begin(self, event_id, epoch, size, digest, mime, filename=None):
         if (not isinstance(event_id,str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',event_id)
