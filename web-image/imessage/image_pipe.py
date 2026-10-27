@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import time
 from gateway import Gateway, images_ready
-from bridge_control import control_for
+from bridge_control import control_for, receive_media_allowed
 from image_store import ImageStore, CHUNK_BYTES, MAX_BYTES
 
 
@@ -36,8 +36,10 @@ def transfer(g,mode,source,emit):
         if set(header)!={'epoch','image_id'}:raise ValueError('invalid_image_header')
         from image_outbound import Outbound
         item,data=Outbound(g.config).take(header['image_id'],epoch)
+        if not receive_media_allowed(g.config,item['created']):raise ValueError('receive_media_disabled')
         emit(dict(item,kind='attachment' if 'filename' in item else 'image'))
         for offset in range(0,len(data),CHUNK_BYTES):
+            if not receive_media_allowed(g.config,item['created']):raise ValueError('receive_media_disabled')
             emit({'offset':offset,'data':base64.b64encode(data[offset:offset+CHUNK_BYTES]).decode()})
         emit({'status':'complete'});return
     if mode!='put' or set(header) not in ({'epoch','event_id','size','digest','mime','created'}, {'epoch','event_id','size','digest','mime','created','filename'}):raise ValueError('invalid_image_header')

@@ -112,6 +112,14 @@ class Store:
             db.execute("UPDATE events SET status='unknown',reason='process_restarted',text='',updated=? WHERE status='intent'",(self.clock(),))
             db.execute("UPDATE events SET status='cancelled',reason='runtime_restarted',text='',updated=? WHERE status='pending'",(self.clock(),))
 
+    @staticmethod
+    def interactive(policy, event):
+        # Only a server-side, explicitly designated sole source gets chat pacing.
+        route = policy.get('routes', {}).get(event['route'], {})
+        return (route.get('enabled') is True
+                and route.get('interactive_source') == event['source']
+                and route.get('sources') == [event['source']])
+
     def claim(self, idle, backend_ready):
         now=self.clock();policy=self.policy()
         with self.connect() as db:
@@ -121,8 +129,10 @@ class Store:
                 db.execute("UPDATE events SET status='cancelled',text='',reason='disabled',updated=? WHERE status='pending'",(now,));return None
             db.execute("UPDATE events SET status='cancelled',text='',reason='policy_changed',updated=? WHERE status='pending' AND revision<>?",(now,str(policy.get('revision',''))))
             if not backend_ready or not idle:return None
-            # Global rate cap, including unknown outcomes and across restarts.
-            if db.execute("SELECT 1 FROM events WHERE status IN ('intent','sent','unknown') AND updated>? LIMIT 1",(now-10,)).fetchone():return None
+            # Inspect recent outcomes, preserving stricter pacing after unknown
+            # sends and for automation sources. Never overlap an in-flight send.
+            if db.execute("SELECT 1 FROM events WHERE status='intent' LIMIT 1").fetchone():return None
+            recent = db.execute("SELECT source,route,status,updated FROM events WHERE status IN ('sent','unknown') AND updated>?", (now-30,)).fetchall()
             candidates=db.execute("SELECT * FROM events WHERE status='pending' ORDER BY created LIMIT 100").fetchall()
             for row in candidates:
                 event=dict(row)
@@ -131,7 +141,19 @@ class Store:
                     if binding(self.db_path,route['chat_id'],route.get('thread_id'))!=event['target'] or route.get('target')!=event['target']:raise Rejected('binding_changed')
                 except (Rejected,KeyError):
                     db.execute("UPDATE events SET status='blocked',text='',reason='binding_or_policy_changed',updated=? WHERE source=? AND event_id=?",(now,event['source'],event['event_id']));continue
-                if db.execute("SELECT 1 FROM events WHERE route=? AND status IN ('intent','sent','unknown') AND updated>? LIMIT 1",(event['route'],now-30)).fetchone():continue
+                fast = self.interactive(policy, event)
+                limited = False
+                for previous in recent:
+                    # The short interval applies only between confirmed sends
+                    # of the same interactive source and route. HA is unchanged.
+                    pair = (fast and previous['status'] == 'sent'
+                            and previous['source'] == event['source']
+                            and previous['route'] == event['route'])
+                    interval = 3 if pair else 30 if previous['route'] == event['route'] else 10
+                    if now - previous['updated'] < interval:
+                        limited = True
+                        break
+                if limited:continue
                 db.execute("UPDATE events SET status='intent',updated=? WHERE source=? AND event_id=?",(now,event['source'],event['event_id']))
                 return event
         return None

@@ -69,6 +69,37 @@ class QueueTests(QueueFixture,unittest.TestCase):
         self.submit();event=self.store.claim(True,True);self.store.finish(event,'sent')
         data=self.payload();data['event_id']='event-2';self.submit(data)
         self.now+=11;self.assertIsNone(self.store.claim(True,True));self.now+=20;self.assertIsNotNone(self.store.claim(True,True))
+    def test_interactive_burst_preserves_order_and_spacing(self):
+        self.policy['routes']['one']['interactive_source']='ha';self.save()
+        self.submit();first=self.store.claim(True,True)
+        second=self.payload();second['event_id']='event-2';self.submit(second)
+        self.now+=20
+        self.assertIsNone(self.store.claim(True,True))  # hung intent never overlaps
+        self.store.finish(first,'sent');self.now+=2.9
+        self.assertIsNone(self.store.claim(True,True));self.now+=.1
+        self.assertEqual(self.store.claim(True,True)['event_id'],'event-2')
+
+    def test_interactive_unknown_retains_cooldown(self):
+        self.policy['routes']['one']['interactive_source']='ha';self.save()
+        self.submit();first=self.store.claim(True,True);self.store.finish(first,'unknown')
+        second=self.payload();second['event_id']='event-2';self.submit(second)
+        self.now+=4;self.assertIsNone(self.store.claim(True,True))
+        self.now+=26;self.assertIsNotNone(self.store.claim(True,True))
+
+    def test_shared_source_route_cannot_enable_fast_pacing(self):
+        self.policy['routes']['one'].update(interactive_source='ha',sources=['ha','other']);self.save()
+        self.submit();first=self.store.claim(True,True);self.store.finish(first,'sent')
+        second=self.payload();second['event_id']='event-2';self.submit(second)
+        self.now+=4;self.assertIsNone(self.store.claim(True,True))
+
+    def test_other_route_global_limit_unchanged(self):
+        self.policy['routes']['one']['interactive_source']='ha'
+        self.policy['routes']['two']=dict(self.policy['routes']['one']);self.save()
+        self.submit();first=self.store.claim(True,True);self.store.finish(first,'sent')
+        second=self.payload();second.update(event_id='event-2',route='two');self.submit(second)
+        self.now+=4;self.assertIsNone(self.store.claim(True,True))
+        self.now+=6;self.assertIsNotNone(self.store.claim(True,True))
+
     def test_pending_capacity(self):
         for i in range(MAX_PENDING):
             data=self.payload();data['event_id']=str(i);self.submit(data)

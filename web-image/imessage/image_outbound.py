@@ -8,6 +8,7 @@ import re
 import sqlite3
 import time
 from image_store import MAX_BYTES
+from bridge_control import receive_media_allowed
 from media_types import filename as safe_filename, valid_mime, validate
 
 class Outbound:
@@ -29,6 +30,7 @@ class Outbound:
     def cancel(self):
         with self.db() as db:db.execute("UPDATE grants SET status='cancelled',data=NULL WHERE status='ready'")
     def grant(self,key,epoch,file_id,created,filename=None,mime=None,voice=False):
+        if not receive_media_allowed(self.cfg,created):raise ValueError('receive_media_disabled')
         if not 0<=self.clock()-created<=120:raise ValueError('image_expired')
         with self.db() as db:
             db.execute("UPDATE grants SET status='expired',data=NULL WHERE status='ready' AND created<?",(self.clock()-120,))
@@ -47,6 +49,7 @@ class Outbound:
             filename=safe_filename(filename)
         else:mime='image/png' if data.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if data.startswith(b'\xff\xd8\xff') else None
         if not mime:raise ValueError('unsupported_image')
+        if not receive_media_allowed(self.cfg,created):raise ValueError('receive_media_disabled')
         digest=hashlib.sha256(data).hexdigest()
         with self.db() as db:db.execute('INSERT INTO grants VALUES (?,?,?,?,?,?,?,?)',(key,epoch,created,mime,digest,len(data),data,'ready'))
         if attachment:
@@ -58,6 +61,7 @@ class Outbound:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute("SELECT created,mime,digest,size,data FROM grants WHERE id=? AND epoch=? AND status='ready'",(key,epoch)).fetchone()
             if not row or not 0<=self.clock()-row[0]<=120:raise ValueError('image_not_available')
+            if not receive_media_allowed(self.cfg,row[0]):raise ValueError('receive_media_disabled')
             db.execute("UPDATE grants SET status='taken',data=NULL WHERE id=?",(key,))
         with self.db() as db:name=db.execute('SELECT filename FROM media_names WHERE id=?',(key,)).fetchone()
         metadata=dict(zip(['created','mime','digest','size'],row[:4]))
