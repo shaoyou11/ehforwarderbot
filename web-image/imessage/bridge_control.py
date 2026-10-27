@@ -31,13 +31,21 @@ class Control:
         finally:
             if os.path.exists(temp):os.unlink(temp)
     def desired(self):return self.read('control.json',{'revision':0,'enabled':False,'images_enabled':False})
-    def set(self,expected=None,**changes):
-        if not changes or set(changes)-{'enabled','images_enabled'} or any(type(v) is not bool for v in changes.values()):raise ValueError('invalid_control')
+    def set(self,expected=None,expected_receive=None,**changes):
+        if not changes or set(changes)-{'enabled','images_enabled','receive_text_only'} or any(type(v) is not bool for v in changes.values()):raise ValueError('invalid_control')
         with self.lock():
             value=self.desired()
             if expected is not None and value['revision']!=expected:raise ValueError('stale_control')
-            if any(value.get(k)!=v for k,v in changes.items()):
-                value.update(changes);value.update(revision=value['revision']+1,updated=self.clock(),images_since=self.clock());self.write('control.json',value)
+            if expected_receive is not None and value.get('receive_revision',0)!=expected_receive:raise ValueError('stale_control')
+            changed={k for k,v in changes.items() if value.get(k)!=v}
+            if changed:
+                value.update(changes);value['updated']=self.clock()
+                if changed & {'enabled','images_enabled'}:
+                    value.update(revision=value['revision']+1,images_since=self.clock())
+                if 'receive_text_only' in changed:
+                    # NAS-enforced direction filter: do not reset Mac upload floors.
+                    value.update(receive_revision=value.get('receive_revision',0)+1,receive_media_since=self.clock())
+                self.write('control.json',value)
             return value
     def acknowledge(self,data,epoch):
         if (set(data)!={'revision','epoch','enabled','images_enabled','phase'} or type(data['enabled']) is not bool
@@ -66,3 +74,10 @@ def permitted(config,images=False):
     if config.get('remote_control_enabled') is not True:return True
     c=control_for(config).desired()
     return c.get('enabled') is True and (not images or c.get('images_enabled') is True)
+
+
+def receive_media_allowed(config,created=None):
+    if config.get('remote_control_enabled') is not True:return True
+    desired=control_for(config).desired()
+    return (desired.get('receive_text_only') is not True
+            and (created is None or created>=desired.get('receive_media_since',0)))

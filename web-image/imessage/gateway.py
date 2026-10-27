@@ -9,7 +9,7 @@ import sqlite3
 import sys
 import time
 from zoneinfo import ZoneInfo
-from bridge_control import control_for, permitted
+from bridge_control import control_for, permitted, receive_media_allowed
 
 
 def atomic(path, value):
@@ -150,7 +150,7 @@ class Gateway:
                     if high < state['cursor']:
                         return {'error':'database_replaced'}
                     since = (datetime.datetime.now(ZoneInfo(self.config.get('log_timezone', 'UTC')))-datetime.timedelta(seconds=120)).replace(tzinfo=None).isoformat(' ')
-                    include_images=request.get('images') is True and images_ready(self.config)
+                    include_images=request.get('images') is True and images_ready(self.config) and receive_media_allowed(self.config)
                     include_attachments=include_images and request.get('attachments') is True and self.config.get('attachments_enabled') is True
                     columns={r[1] for r in db.execute('PRAGMA table_info(msglog)')}
                     mime_column=',mime' if include_attachments and 'mime' in columns else ',NULL'
@@ -170,6 +170,8 @@ class Gateway:
                     # Retain compact deduplication IDs permanently; no lifetime message quota.
                     ledger.execute('INSERT INTO delivered VALUES (?)',(key,))
                 if msg_type in ('Image','File','Video','Audio','Voice'):
+                    if not receive_media_allowed(self.config,created):
+                        return {'enabled':True,'epoch':state['epoch'],'message':None}
                     if managed and created<control_for(self.config).desired().get('images_since',0):
                         return {'enabled':True,'epoch':state['epoch'],'message':None}
                     from image_outbound import Outbound
